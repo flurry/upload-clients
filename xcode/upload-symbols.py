@@ -26,22 +26,27 @@ enabled, you will need to download your dSYMs from iTunesConnect after you
 have submitted your build and then manually upload them to Flurry.
 """
 
-import ConfigParser
-import httplib
-import json
-import logging
-import os
-import ssl
-import sys
-import tarfile
-import time
-import urllib2
-import urlparse
-from argparse import ArgumentParser, RawDescriptionHelpFormatter
-from tempfile import NamedTemporaryFile
-from urllib2 import Request
 
-assert sys.version_info >= (2, 7), "Python version >= 2.7.x required"
+import sys
+
+if sys.version_info < (2, 7):
+    sys.exit("Python version >= 2.7.x required")
+
+import ConfigParser                                                 # noqa: E402
+import httplib                                                      # noqa: E402
+import json                                                         # noqa: E402
+import logging                                                      # noqa: E402
+import os                                                           # noqa: E402
+import ssl                                                          # noqa: E402
+import shutil                                                       # noqa: E402
+import tarfile                                                      # noqa: E402
+import time                                                         # noqa: E402
+import urllib2                                                      # noqa: E402
+import urlparse                                                     # noqa: E402
+import zipfile                                                      # noqa: E402
+from argparse import ArgumentParser, RawDescriptionHelpFormatter    # noqa: E402
+from tempfile import mkdtemp, NamedTemporaryFile                    # noqa: E402
+from urllib2 import Request                                         # noqa: E402
 
 
 METADATA_BASE = "https://crash-metadata.flurry.com/pulse/v1/"
@@ -62,30 +67,29 @@ logging.basicConfig(format=LOG_FORMAT, datefmt="%H:%M:%S")
 log = logging.getLogger("com.flurry.upload.client")
 
 
-def format_url(base, url_format, *args, **kwargs):
-    url = url_format.format(*args, **kwargs).lstrip('/')
-    return urlparse.urljoin(base, url)
-
-
-def metadata_url(url_format, *args, **kwargs):
-    return format_url(METADATA_BASE, url_format, *args, **kwargs)
-
-
-def find_dsyms_and_upload(token, api_key, dsyms_path, wait, max_wait):
+def find_dsyms_and_upload(token, api_key, search_path, single_file,
+                          connect_archive, wait, max_wait):
     """
     Find the symbol files for a build and upload them to the Crash service
 
     token - the long lived token used to access Flurry's APIs
     api_key - the api key for the project
-    dsyms_path - the folder where the dSYMs to be uploaded are located
-    no_wait - whether to wait for the upload to be processed
-    max_wait - number of seconds to wait for the upload to get processed
+    search_path - the folder where the dSYMs to be uploaded are located
+    single_file - if search_path refers to a single dSYM bundle
+    connect_archive - if search_path refers to an archive downloaded
+        from iTunesConnect
+    wait - whether to wait for the upload to be processed
+    max_wait - number of seconds to wait for the upload to be processed
     """
     log.info("fetching project")
     project = lookup_api_key(api_key, token)
 
     log.info("taring files")
-    tar_path = tar_gz_dsyms(dsyms_path)
+    tar_path = ""
+    if not connect_archive:
+        tar_path = tar_gz_dsyms(search_path, single_file)
+    else:
+        tar_path = process_archive(search_path)
     tar_size = get_tar_size(tar_path)
     log.info("archive: %s (%d b)", tar_path, tar_size)
 
@@ -103,7 +107,10 @@ def find_dsyms_and_upload(token, api_key, dsyms_path, wait, max_wait):
 
 
 def parse_args():
-    """Parse the command line arguments. Return ArgumentParser namespace"""
+    """Parse the command line arguments.
+
+    Return ArgumentParser namespace
+    """
 
     dsym_default = os.environ.get("DWARF_DSYM_FOLDER_PATH") or ''
 
@@ -129,12 +136,24 @@ def parse_args():
 
     path_config = parser.add_argument_group('Search Path Configuration')
     path_config.add_argument(
-        "-f", "--dsyms-root",
+        "-p", "--search-path",
         type=str, default=dsym_default,
         help=(
             "The path where XCode generates dSYMs. " +
             "(Default: $DWARF_DSYM_FOLDER_PATH)"
         )
+    )
+    path_config.add_argument(
+        "--single-file", default=False, action="store_const", const=True,
+        help=(
+            "Upload a single dSYM bundle." +
+            "(--search-path should be pointed to the directory ending " +
+            "with .dSYM)"
+        )
+    )
+    path_config.add_argument(
+        "--connect-archive", default=False, action="store_const", const=True,
+        help="Upload dSYMs from the zip downloaded from iTunesConnect."
     )
 
     behavior = parser.add_argument_group('Script behavior')
@@ -181,36 +200,49 @@ def lookup_api_key(apikey, token):
     return int(project["data"][0]["id"])
 
 
-def tar_gz_dsyms(dsyms_path):
+def tar_gz_dsyms(search_path, single_file):
     """Tar and gz all of the dSYMs found in the provided directory
 
-    dsym_path - the path of the dSYM root
+    search_path - the path of the dSYM root
+    single-file - a flag that indicates that search_path points
+        to a .dSYM directory
 
     return the path to the archive
     """
     cwd = os.getcwd()
 
-    dsyms_root = os.path.abspath(dsyms_path)
-    log.debug("listing %s", dsyms_root)
-    if dsyms_root.endswith(".dSYM"):
-        dsyms = [os.path.basename(dsyms_root)]
-        dsyms_root = os.path.dirname(dsyms_root)
+    search_root = os.path.abspath(search_path)
+    if single_file:
+        dsyms = [os.path.basename(search_root)]
+        search_root = os.path.dirname(search_root)
     else:
-        dsyms = [
-            path for path in os.listdir(dsyms_root) if path.endswith(".dSYM")]
+        log.debug("looking for dsyms in %s", search_root)
+        dsyms = [f for f in os.listdir(search_root) if f.endswith(".dSYM")]
 
     tmpf = NamedTemporaryFile(delete=False)
     tmpf.close()
     tar_path = os.path.abspath(tmpf.name + ".tgz")
 
-    os.chdir(dsyms_root)
+    os.chdir(search_root)
     tar = tarfile.open(name=tar_path, mode="w:gz")
     for dsym in dsyms:
         log.debug("Adding %s to tar", dsym)
         tar.add(dsym)
     tar.close()
+
     os.chdir(cwd)
 
+    return tar_path
+
+
+def process_archive(archive_path):
+    scratch_dir = mkdtemp()
+    log.debug("expanding to directory %s", scratch_dir)
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        archive.extractall(scratch_dir)
+    tar_path = tar_gz_dsyms(scratch_dir, False)
+
+    shutil.rmtree(scratch_dir, True)
     return tar_path
 
 
@@ -231,7 +263,7 @@ def create_upload(project, size, token):
 
     return the id of the upload that was created
     """
-    url = metadata_url("/project/{}/uploads", project)
+    url = metadata_url("/project/{:d}/uploads", project)
     upload = {
         "data": {
             "type": "upload",
@@ -266,7 +298,7 @@ def send_to_upload_service(project, upload, token, tar_path, tar_size):
 
     return true if we get 201/202, false otherwise
     """
-    url = format_url(UPLOAD_BASE, "upload/{:d}/{:d}", project, upload)
+    url = upload_url(project, upload)
     headers = {
         "Content-Type": "application/octet-stream",
         "Range": "bytes 0-{}".format(tar_size - 1),
@@ -349,6 +381,22 @@ def json_api_headers(token):
     }
 
 
+def format_url(base, resource, *args, **kwargs):
+    """Format and normalize urls"""
+    url = resource.format(*args, **kwargs).lstrip('/')
+    return urlparse.urljoin(base, url)
+
+
+def upload_url(project_id, upload_id):
+    """Create the url to upload blobs to in the upload service"""
+    return format_url(UPLOAD_BASE, "upload/{:d}/{:d}", project_id, upload_id)
+
+
+def metadata_url(resource, *args, **kwargs):
+    """Create a url to interact with the metatdata service"""
+    return format_url(METADATA_BASE, resource, *args, **kwargs)
+
+
 def create_request(url, headers, data):
     """Create a http request object with headers and payload
 
@@ -372,9 +420,12 @@ def exec_request(request, task, timeout=10):
 
     return the urllib2 response
     """
-    kwargs = (
-        dict(timeout=timeout, context=SSL_CONTEXT) if IS_PYTHON_2_7_9 else
-        dict(timeout=timeout))
+    kwargs = {
+        "timeout": timeout
+    }
+    if IS_PYTHON_2_7_9:
+        kwargs["context"] = SSL_CONTEXT
+
     try:
         return urllib2.urlopen(request, **kwargs)
     except urllib2.HTTPError as e:
@@ -417,9 +468,11 @@ def main():
 
     token = args.token
     api_key = args.api_key
-    dsyms = args.dsyms_root
+    search_path = args.search_path
     wait = not args.no_wait
     max_wait = args.max_wait
+    single = args.single_file
+    archive = args.connect_archive
 
     if args.config_file:
         config = ConfigParser.RawConfigParser()
@@ -429,7 +482,7 @@ def main():
 
     log.debug("--------------------")
     log.debug("apiKey=%s", api_key)
-    log.debug("dsyms_root=%s", dsyms)
+    log.debug("search_path=%s", search_path)
     log.debug("wait=%s", wait)
     log.debug("max_wait=%s", max_wait)
     log.debug("--------------------")
@@ -441,7 +494,8 @@ def main():
             token=bool(token),
             api_key=bool(api_key))
 
-    find_dsyms_and_upload(token, api_key, dsyms, wait=wait, max_wait=max_wait)
+    find_dsyms_and_upload(token, api_key, search_path, single, archive,
+                          wait=wait, max_wait=max_wait)
 
 
 if __name__ == "__main__":
