@@ -106,7 +106,7 @@ def find_dsyms_and_upload(token, api_key, search_path, single_file,
         log.info("Skipping check to see if the dSYMs got processed")
 
 
-def parse_args():
+def configure_arg_parser():
     """Parse the command line arguments.
 
     Return ArgumentParser namespace
@@ -139,21 +139,10 @@ def parse_args():
         "-p", "--search-path",
         type=str, default=dsym_default,
         help=(
-            "The path where XCode generates dSYMs. " +
+            "The path to search for dSYMs, the path to a particular dSYM, " +
+            "or the path to an archive downloaded from iTunesConnect " +
             "(Default: $DWARF_DSYM_FOLDER_PATH)"
         )
-    )
-    path_config.add_argument(
-        "--single-file", default=False, action="store_const", const=True,
-        help=(
-            "Upload a single dSYM bundle." +
-            "(--search-path should be pointed to the directory ending " +
-            "with .dSYM)"
-        )
-    )
-    path_config.add_argument(
-        "--connect-archive", default=False, action="store_const", const=True,
-        help="Upload dSYMs from the zip downloaded from iTunesConnect."
     )
 
     behavior = parser.add_argument_group('Script behavior')
@@ -175,7 +164,7 @@ def parse_args():
         )
     )
 
-    return parser.parse_args()
+    return parser
 
 
 def lookup_api_key(apikey, token):
@@ -237,6 +226,7 @@ def tar_gz_dsyms(search_path, single_file):
 
 def process_archive(archive_path):
     scratch_dir = mkdtemp()
+    log.info("processing file as iTunesConnect archive")
     log.debug("expanding to directory %s", scratch_dir)
     with zipfile.ZipFile(archive_path, "r") as archive:
         archive.extractall(scratch_dir)
@@ -457,7 +447,8 @@ def get_flurry_config_key(config, key, default=None):
 
 
 def main():
-    args = parse_args()
+    parser = configure_arg_parser()
+    args = parser.parse_args()
     log.setLevel(args.log)
 
     insecure = args.insecure
@@ -471,8 +462,8 @@ def main():
     search_path = args.search_path
     wait = not args.no_wait
     max_wait = args.max_wait
-    single = args.single_file
-    archive = args.connect_archive
+    single = search_path.endswith(".dSYM")
+    archive = search_path.endswith(".zip")
 
     if args.config_file:
         config = ConfigParser.RawConfigParser()
@@ -485,14 +476,19 @@ def main():
     log.debug("search_path=%s", search_path)
     log.debug("wait=%s", wait)
     log.debug("max_wait=%s", max_wait)
+    log.debug("singe_file=%b", single)
+    log.debug("connect_archive=%b", archive)
     log.debug("--------------------")
 
     if not token or not api_key:
         die(
-            "You must provide a token (found: {token}) and an API key " +
-            "(found: {api_key}) for the upload",
-            token=bool(token),
-            api_key=bool(api_key))
+            "{usage}\nYou must provide a token [-t TOKEN] ({token_present}) and an API key " +
+            "[-k API_KEY] ({api_key_present})\nor a config file [-c CONFIG] ({config_specified}) " +
+            "that contains your API key and token for the upload.",
+            token_present="found" if bool(token) else "not found",
+            api_key_present="found" if bool(api_key) else "not found",
+            config_specified="found" if bool(args.config_file) else "not found",
+            usage=parser.format_usage())
 
     find_dsyms_and_upload(token, api_key, search_path, single, archive,
                           wait=wait, max_wait=max_wait)

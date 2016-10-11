@@ -40,7 +40,7 @@ the _Run script only when installing` checkbox in the configuration.
   ![Build select](instructions/bitcode-build.png)
   - Download the dsyms
   ![dSYMs download](instructions/bitcode-dsyms.png)
-1. Run the script using the `-p` and `--connect-archive` arguments
+1. Run the script using the `-p <path to downloaded file>` argument. eg.
 ```
-./upload-symbols.py -c flurry.config -p <path to downloaded file> --connect-archive
+./upload-symbols.py -c flurry.config -p ~/Downloads/dSYMs.zip
 ```
