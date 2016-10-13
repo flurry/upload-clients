@@ -4,7 +4,7 @@ Flurry's Crash service can symbolicate the crashes reported by Flurry's SDK.
 This script uploads the symbols required to properly symbolicate crashes from
 iOS applications.
 
-## How to send iOS symbols
+## How to send iOS symbols at build time
 
 1. Ensure that your project is configured to build dSYM bundles
   ![dSYM setting](instructions/build-dsym-setting.png)
@@ -23,6 +23,24 @@ iOS applications.
   ```
   ![Job configuration](instructions/job-config.png)
 
-Now whenever you build your application you will upload symbols to Flurry's symbolication service. _NB:_ if you are
-compiling your applications for the app store with BitCode enabled you will need to download your dSYMs from iTunesConnect
-after you have submitted your build. Instuctions for submitting these symbols are forthcoming.
+Now whenever you build your application you will upload symbols to Flurry's symbolication service. If you wish
+you can configure your symbols to be sent only when you build an archive of your project; this is achieved by checking
+the _Run script only when installing` checkbox in the configuration.
+
+## How to send iOS symbols for a BitCode enabled app
+
+1. Download symbols from iTunesConnect
+  - Go to iTunesConnect
+  ![Developer Account](instructions/bitcode-connect.png)
+  - Go to _My Apps_
+  - Select the app you want symbols for
+  - Inspect the current version
+  ![Version select](instructions/bitcode-version.png)
+  - Open the build
+  ![Build select](instructions/bitcode-build.png)
+  - Download the dsyms
+  ![dSYMs download](instructions/bitcode-dsyms.png)
+1. Run the script using the `-p <path to downloaded file>` argument. eg.
+```
+./upload-symbols.py -c flurry.config -p ~/Downloads/dSYMs.zip
+```
