@@ -1,5 +1,10 @@
 dev/
+.idea/
+gradle/build
+gradle/.gradle
+target/
+
 *.pyc
-.idea
 *.iml
-target
+*.iws
+*.ipr

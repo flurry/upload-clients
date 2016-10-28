@@ -1,8 +1,10 @@
 # Flurry Upload Clients
 
 Flurry's Crash service can symbolicate the crashes reported by Flurry's SDK.
-This script uploads the symbols required to properly symbolicate crashes from
-iOS applications.
+This repository contains code to uploads the symbols required to properly symbolicate
+crashes from iOS apps and Android apps with ProGuard obfuscation. Both of these clients require
+[programmatic access keys][programmatic-access], these keys are **NOT** the same credentials
+that were previously used to access the apis from [api.flurry.com](api.flurry.com).
 
 ## How to send iOS symbols at build time
 
@@ -44,3 +46,27 @@ the _Run script only when installing` checkbox in the configuration.
 ```
 ./upload-symbols.py -c flurry.config -p ~/Downloads/dSYMs.zip
 ```
+
+## How to send ProGuard mapping files at build time
+
+*Note*: If you have ProGuard enabled and you do not send your mapping file at build time then you must upload the
+generated `mapping.txt` file manually before any stack traces received from that version of your app can be deobfuscated.
+
+1. Apply the Flurry android crash plugin to your app's build
+  ```
+  apply plugin: 'com.flurry.android.symbols'
+
+  ...
+
+  flurryCrash {
+    <configuration>
+  }
+  ```
+1. Configure the crash plugin. You may provide either `configPath` or `apiKey` *and* `token`
+  - `configPath "<the path to the flurry.config file described above>"`
+  - `apiKey "<the api key used to initialize the SDK>"`
+  - `token "<An environment variable to read the token from>"`
+  - `useEnvironmentVariable (true|false)` the default for `useEnvironmentVariable` is `true` you can set it to `false`
+    if you want to inline your [Programmatic Token][programmatic-access], though this is not recommended.
+
+[programmatic-access]: https://developer.yahoo.com/flurry/docs/api/code/apptoken/
