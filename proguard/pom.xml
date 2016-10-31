@@ -6,7 +6,7 @@
 
     <groupId>com.flurry</groupId>
     <artifactId>proguard-upload</artifactId>
-    <version>0.1.${build}</version>
+    <version>1.0.0-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>Proguard Upload</name>
@@ -32,6 +32,11 @@
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
             <version>1.12</version>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.argparse4j</groupId>
+            <artifactId>argparse4j</artifactId>
+            <version>0.7.0</version>
         </dependency>
     </dependencies>
     <build>

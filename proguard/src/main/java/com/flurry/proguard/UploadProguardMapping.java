@@ -1,8 +1,13 @@
 package com.flurry.proguard;
 
+import net.sourceforge.argparse4j.ArgumentParsers;
+import net.sourceforge.argparse4j.inf.ArgumentParser;
+import net.sourceforge.argparse4j.inf.ArgumentParserException;
+import net.sourceforge.argparse4j.inf.Namespace;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -11,184 +16,264 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedOutputStream;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 
 public class UploadProguardMapping {
 
     private static final String METADATA_BASE = "https://crash-metadata.flurry.com/pulse/v1/";
     private static final String UPLOAD_BASE = "https://upload.flurry.com/upload/v1/upload/";
+    private static final int MAX_DURATION_SECONDS_DEFAULT = 600; // 10 Minutes
+    private static Logger LOGGER;
     private static HttpClient httpClient;
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        if (args.length != 3) {
-            System.out.println("Please provide 3 arguments in the following order:");
-            System.out.println("ApiKey PathToProguard AccessToken");
-            throw new IOException("Invalid number of arguments");
+    public static void main(String[] args) {
+
+        ArgumentParser parser = ArgumentParsers.newArgumentParser("com.flurry.proguard.UploadProguardMapping", true)
+                .description("Uploads Proguard Mapping Files for Android");
+        parser.addArgument("-k", "--api-key").help("API Key for your project").required(true);
+        parser.addArgument("-u", "--uuid").help("UUID").required(true);
+        parser.addArgument("-p", "--path").help("Path to Proguard file to be uploaded").required(true);
+        parser.addArgument("-t", "--token").help("Provide a valid Access Token").required(true);
+        parser.addArgument("-to", "--timeout").type(Integer.class).help(
+                "Provide a timeout value for Upload.")
+                .setDefault(MAX_DURATION_SECONDS_DEFAULT);
+
+        Namespace res = null;
+        try {
+            res = parser.parseArgs(args);
+        } catch (ArgumentParserException e) {
+            parser.handleError(e);
+            System.exit(1);
         }
+
         httpClient = HttpClientBuilder.create().build();
-        new UploadProguardMapping().uploadFile(args[0], args[1], args[2]);
+
+        Logger logger = Logger.getLogger(UploadProguardMapping.class.getName());
+        new UploadProguardMapping().uploadFile(res.getString("api_key"), res.getString("uuid"),
+                res.getString("path"), res.getString("token"), res.getInt("timeout"), logger);
     }
 
-    public void uploadFile(String apiKey, String pathToFiles, String token)
-            throws IOException, InterruptedException {
-        File file = new File(pathToFiles);
-        File zippedFile = tarZipFile(file);
+    public void uploadFile(String apiKey, String uuid, String pathToFile, String token, int timeout, Logger logger) {
+        LOGGER = logger;
+        File file = new File(pathToFile);
+        if (file.isDirectory()) {
+            LOGGER.log(Level.SEVERE,
+                    pathToFile + " is a directory. Please retry with path to the proguard file.");
+            System.exit(1);
+        }
+        File zippedFile = tarZipFile(file, uuid);
         String projectId = lookUpProjectId(apiKey, token);
         String payload = getJson("/json/upload.json").replace("UPLOAD_SIZE",
                 Long.toString(zippedFile.length()))
                 .replace("PROJECT_ID", projectId);
         String uploadId = createUpload(projectId, payload, token);
-        System.out.println("Upload created with upload ID: " + uploadId);
+        LOGGER.log(Level.INFO, "Upload created with upload ID: " + uploadId);
         sendToUploadService(zippedFile, projectId, uploadId, token);
-        String retval = checkUploadStatus(projectId, uploadId, token);
+        String retval = checkUploadStatus(projectId, uploadId, token, timeout);
         if (retval != null) {
-            throw new IOException("Failed to upload with Failure Reason: " + retval);
+            logger.log(Level.SEVERE, "Failed to upload with Failure Reason: " + retval);
+            System.exit(1);
         }
-        System.out.println("SUCCESS!!");
+        LOGGER.log(Level.INFO, "Upload Completed Successfully!");
     }
 
-    private File tarZipFile(File file) throws IOException {
-        File tarZippedFile = File.createTempFile("tar-zipped-file", ".tar.gz");
-        TarArchiveOutputStream taos = new TarArchiveOutputStream(new GZIPOutputStream(new BufferedOutputStream(
-                new FileOutputStream(tarZippedFile))));
-        putArchives(taos, file, "");
-        taos.finish();
-        taos.close();
+    private File tarZipFile(File file, String uuid) {
+        File tarZippedFile = null;
+        try {
+            tarZippedFile = File.createTempFile("tar-zipped-file", ".tar.gz");
+            TarArchiveOutputStream taos = new TarArchiveOutputStream(new GZIPOutputStream(new BufferedOutputStream(
+                    new FileOutputStream(tarZippedFile))));
+            taos.putArchiveEntry(new TarArchiveEntry(file, uuid + ".txt"));
+            IOUtils.copy(new FileInputStream(file), taos);
+            taos.closeArchiveEntry();
+            taos.finish();
+            taos.close();
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while trying to tar and zip the file.", e);
+            System.exit(1);
+        }
         return tarZippedFile;
     }
 
-    private void putArchives(TarArchiveOutputStream taos, File file, String base) throws IOException {
-        if (file.isDirectory()) {
-            for (File f : file.listFiles()) {
-                putArchives(taos, f, base + file.getName() + "/");
-            }
-        } else {
-            // file is just a single file
-            taos.putArchiveEntry(new TarArchiveEntry(file, base + file.getName()));
-            IOUtils.copy(new FileInputStream(file), taos);
-            taos.closeArchiveEntry();
-        }
-    }
-
-    private String lookUpProjectId(String apiKey, String token) throws IOException {
+    private String lookUpProjectId(String apiKey, String token) {
         String queryUrl = METADATA_BASE + "project?filter[project.apiKey]=" + apiKey + "&fields[project]=apiKey";
         HttpGet getRequest = new HttpGet(queryUrl);
-        Map<String, String> requestHeaders = getDefaultHeaders(token);
-        for (String key : requestHeaders.keySet()) {
-            getRequest.addHeader(key, requestHeaders.get(key));
+        List<Header> requestHeaders = getDefaultHeaders(token);
+        for (Header header : requestHeaders) {
+            getRequest.addHeader(header.getName(), header.getValue());
         }
-        HttpResponse response = httpClient.execute(getRequest);
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Look up for project failed with Status Code: " +
-                    response.getStatusLine().getStatusCode() + " and Status Reason: " +
-                    response.getStatusLine().getReasonPhrase());
+        HttpResponse response = null;
+        try {
+            response = httpClient.execute(getRequest);
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while looking up Project.", e);
+            System.exit(1);
+        }
+        int statusCode = response.getStatusLine().getStatusCode();
+        if (statusCode != 200) {
+            if (statusCode == 401) {
+                LOGGER.log(Level.SEVERE, "Look up for project failed with Status Code: " + statusCode +
+                        " due to Invalid/Expired token. Please check the token provided.");
+                System.exit(1);
+            }
+            LOGGER.log(Level.SEVERE, "Look up for project failed with Status Code: " +
+                    statusCode + " and Status Reason: " + response.getStatusLine().getReasonPhrase());
+            try {
+                LOGGER.log(Level.SEVERE, "Response Body: " + EntityUtils.toString(response.getEntity()));
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "IO Exception while reading the response body.");
+            }
+            System.exit(1);
         }
         JSONObject jsonObject = getJsonFromEntity(response.getEntity());
-        System.out.println("JSON Object: " + jsonObject);
         JSONArray jsonArray = jsonObject.getJSONArray("data");
         if (jsonArray.length() == 0) {
-            throw new IOException("No projects found for the API Key: " + apiKey);
-            // throw error
+            LOGGER.log(Level.SEVERE, "No projects found for the API Key: " + apiKey);
+            System.exit(1);
         }
         return jsonArray.getJSONObject(0).get("id").toString();
     }
 
-    private JSONObject getJsonFromEntity(HttpEntity httpEntity) throws IOException {
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(httpEntity.getContent()));
-        StringBuilder sb = new StringBuilder();
-        String line;
-        while ((line = bufferedReader.readLine()) != null) {
-            sb.append(line + '\n');
+    private JSONObject getJsonFromEntity(HttpEntity httpEntity) {
+        JSONObject jsonObject = null;
+        try {
+            jsonObject = new JSONObject(EntityUtils.toString(httpEntity));
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while reading Json from HttpEntity", e);
+            System.exit(1);
         }
-        bufferedReader.close();
-        return new JSONObject(sb.toString());
+        return jsonObject;
     }
 
-    private String getJson(String resourcePath) throws IOException {
+    private String getJson(String resourcePath) {
         InputStream is =  this.getClass().getResourceAsStream(resourcePath);
-        return IOUtils.toString(is);
+        String jsonString = null;
+        try {
+            jsonString = IOUtils.toString(is);
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while getting Json from " + resourcePath, e);
+            System.exit(1);
+        }
+        return jsonString;
     }
 
-    private String createUpload(String projectId, String payload, String token)
-            throws IOException {
+    private String createUpload(String projectId, String payload, String token) {
         String postUrl = METADATA_BASE + "project/" + projectId + "/uploads";
         HttpPost postRequest = new HttpPost(postUrl);
-        Map<String, String> requestHeaders = getDefaultHeaders(token);
-        for (String key : requestHeaders.keySet()) {
-            postRequest.setHeader(key, requestHeaders.get(key));
+        List<Header> requestHeaders = getDefaultHeaders(token);
+        for (Header header : requestHeaders) {
+            postRequest.setHeader(header.getName(), header.getValue());
         }
-        postRequest.setEntity(new StringEntity(payload));
-        HttpResponse response = httpClient.execute(postRequest);
+        try {
+            postRequest.setEntity(new StringEntity(payload));
+        } catch (UnsupportedEncodingException e) {
+            LOGGER.log(Level.SEVERE, "Unsupported Encoding Exception while trying to create Upload", e);
+            System.exit(1);
+        }
+        HttpResponse response = null;
+        try {
+            response = httpClient.execute(postRequest);
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while trying to create a POST request.", e);
+            System.exit(1);
+        }
         if (response.getStatusLine().getStatusCode() != HttpURLConnection.HTTP_CREATED) {
-            throw new IOException("Failed to create Upload with Status Code: " +
+            LOGGER.log(Level.SEVERE, "Failed to create Upload with Status Code: " +
                     response.getStatusLine().getStatusCode() + " and Status Reason: "
                     + response.getStatusLine().getReasonPhrase());
+            try {
+                LOGGER.log(Level.SEVERE, "Response Body: " + EntityUtils.toString(response.getEntity()));
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "IO Exception while reading the response body", e);
+            }
+            System.exit(1);
         }
 
-        BufferedReader in = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-        String input;
-        StringBuilder resp = new StringBuilder();
-        while ((input = in.readLine()) != null) {
-            resp.append(input);
-        }
-        in.close();
-        JSONObject jsonObject = new JSONObject(resp.toString());
+        JSONObject jsonObject = getJsonFromEntity(response.getEntity());
         return jsonObject.getJSONObject("data").get("id").toString();
     }
 
-    private void sendToUploadService(File file, String projectId, String uploadId, String token)
-            throws IOException {
+    private void sendToUploadService(File file, String projectId, String uploadId, String token) {
         String uploadServiceUrl = UPLOAD_BASE + projectId + "/" + uploadId;
         HttpPost postRequest = new HttpPost(uploadServiceUrl);
-        Map<String, String> requestHeaders = getHeadersForUploadService(file.length(), token);
-        for (String key : requestHeaders.keySet()) {
-            postRequest.setHeader(key, requestHeaders.get(key));
+        List<Header> requestHeaders = getHeadersForUploadService(file.length(), token);
+        for (Header header : requestHeaders) {
+            postRequest.setHeader(header.getName(), header.getValue());
         }
         postRequest.setEntity(new FileEntity(file));
-        HttpResponse response = httpClient.execute(postRequest);
+        HttpResponse response = null;
+        try {
+            response = httpClient.execute(postRequest);
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while executing the POST request.", e);
+            System.exit(1);
+        }
         int responseStatusCode = response.getStatusLine().getStatusCode();
         if (responseStatusCode != 201 && responseStatusCode != 202) {
-            throw new IOException("Upload Service POST failed with Status Code: " + responseStatusCode +
-                            " and Status Reason: " + response.getStatusLine().getReasonPhrase());
+            LOGGER.log(Level.SEVERE, "Upload Service POST failed with Status Code: " + responseStatusCode +
+                    " and Status Reason: " + response.getStatusLine().getReasonPhrase());
+            System.exit(1);
         }
     }
 
-    public String checkUploadStatus (String projectId, String uploadId, String token)
-            throws IOException, InterruptedException {
+    public String checkUploadStatus (String projectId, String uploadId, String token, int maxDurationSeconds) {
         String queryUrl = METADATA_BASE + "project/" + projectId + "/uploads/" +
                 uploadId + "?fields[upload]=uploadStatus,failureReason";
         HttpGet getRequest = new HttpGet(queryUrl);
-        Map<String, String> requestHeaders = getDefaultHeaders(token);
-        for (String key : requestHeaders.keySet()) {
-            getRequest.setHeader(key, requestHeaders.get(key));
+        List<Header> requestHeaders = getDefaultHeaders(token);
+        for (Header header : requestHeaders) {
+            getRequest.setHeader(header.getName(), header.getValue());
         }
-        HttpResponse response = httpClient.execute(getRequest);
+        HttpResponse response = null;
+        try {
+            response = httpClient.execute(getRequest);
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "IO Exception while trying to check upload status.", e);
+            System.exit(1);
+        }
         if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Checking Upload Status failed with Status Code: " +
+            LOGGER.log(Level.SEVERE, "Checking Upload Status failed with Status Code: " +
                     response.getStatusLine().getStatusCode() + " and Status Reason: " +
                     response.getStatusLine().getReasonPhrase());
+            System.exit(1);
         }
         String uploadStatus =  getJsonFromEntity(response.getEntity()).getJSONObject("data")
                 .getJSONObject("attributes").getString("uploadStatus");
+        int waitingTime = 0;
         while (!uploadStatus.equals("COMPLETED") && !uploadStatus.equals("FAILED")) {
-            Thread.sleep(5000);
-            response = httpClient.execute(getRequest);
-            uploadStatus =  getJsonFromEntity(response.getEntity()).getJSONObject("data")
-                    .getJSONObject("attributes").getString("uploadStatus");
+            LOGGER.log(Level.INFO, "Waiting for Upload to complete");
+            if (waitingTime < maxDurationSeconds) {
+                waitingTime += 5;
+                try {
+                    Thread.sleep(5000);
+                    response = httpClient.execute(getRequest);
+                } catch (InterruptedException | IOException e) {
+                    LOGGER.log(Level.SEVERE, "Exception while waiting for the Upload to complete", e);
+                    System.exit(1);
+                }
+                uploadStatus =  getJsonFromEntity(response.getEntity()).getJSONObject("data")
+                        .getJSONObject("attributes").getString("uploadStatus");
+            } else {
+                LOGGER.log(Level.SEVERE, "Timed out while checking for upload status.");
+                System.exit(1);
+            }
         }
 
         if (uploadStatus.equals("FAILED")) {
@@ -198,19 +283,19 @@ public class UploadProguardMapping {
         return null;
     }
 
-    private Map<String, String> getDefaultHeaders(String token) {
-        Map<String, String> headersMap = new HashMap<>();
-        headersMap.put("Authorization", "Bearer " + token);
-        headersMap.put("Accept", "application/vnd.api+json");
-        headersMap.put("Content-Type", "application/vnd.api+json");
-        return headersMap;
+    private List<Header> getDefaultHeaders(String token) {
+        List<Header> headers = new ArrayList<>();
+        headers.add(new BasicHeader("Authorization", "Bearer " + token));
+        headers.add(new BasicHeader("Accept", "application/vnd.api+json"));
+        headers.add(new BasicHeader("Content-Type", "application/vnd.api+json"));
+        return headers;
     }
 
-    private Map<String, String> getHeadersForUploadService(long size, String token) {
-        Map<String, String> headersMap = new HashMap<>();
-        headersMap.put("Content-Type", "application/octet-stream");
-        headersMap.put("Range", "bytes 0-" + Long.toString(size - 1));
-        headersMap.put("Authorization", "Bearer " + token);
-        return headersMap;
+    private List<Header> getHeadersForUploadService(long size, String token) {
+        List<Header> headers = new ArrayList<>();
+        headers.add(new BasicHeader("Content-Type", "application/octet-stream"));
+        headers.add(new BasicHeader("Range", "bytes 0-" + Long.toString(size - 1)));
+        headers.add(new BasicHeader("Authorization", "Bearer " + token));
+        return headers;
     }
 }
