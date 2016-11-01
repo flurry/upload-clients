@@ -1,3 +1,6 @@
+/*
+ * Copyright Yahoo Inc. 2016, see https://github.com/flurry/upload-clients/blob/master/LICENSE.txt for full details
+ */
 package com.flurry.proguard;
 
 import net.sourceforge.argparse4j.ArgumentParsers;

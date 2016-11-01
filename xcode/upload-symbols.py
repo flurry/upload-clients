@@ -1,4 +1,5 @@
 #!/usr/bin/python2.7
+# Copyright Yahoo Inc. 2016, see LICENSE.txt for full details
 """
 Flurry's Crash service can symbolicate the crashes reported by Flurry's SDK.
 This script uploads the symbols required to properly symbolicate crashes from
