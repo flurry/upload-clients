@@ -12,6 +12,7 @@ iOS applications.
 1. In XCode add a `Run Script` build phase
   ![XCode build configuration](instructions/xcode-phases.png)
 1. Add a configuration file in the root of your project `flurry.config`. Contents:
+
   ```
   [flurry]
   token=TOKEN
