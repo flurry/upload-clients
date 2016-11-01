@@ -1,9 +1,9 @@
 package com.flurry.android.symbols
 
 import com.android.build.gradle.api.BaseVariant
-import com.flurry.proguard.UploadProguardMapping
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import com.flurry.proguard.UploadProGuardMapping
 
 /**
  * A Gradle plugin that finds the generated ProGuard file and sends it to Flurry's crash service
@@ -16,6 +16,8 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
     @Override
     void apply(Project project) {
+        UploadProGuardMapping.logger = project.logger
+        UploadProGuardMapping.failHard = false
         getOrCreateConfig(project)
 
         project.afterEvaluate {
@@ -29,13 +31,21 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
-                        UploadProguardMapping.uploadProguardFile(configValues.get(API_KEY), configValues.get(TOKEN), uuid, variant.mappingFile)
+                        String apiKey = configValues.get(API_KEY)
+                        String token = configValues.get(TOKEN)
+                        UploadProGuardMapping.uploadFile(apiKey, token, uuid, variant.mappingFile)
                     }
                 }
             }
         }
     }
 
+    /**
+     * Creates a configuration container in the project for Gradle to populate
+     *
+     * @param target the project to find/create the configuration in
+     * @return the project's configuration container
+     */
     private SymbolUploadConfiguration getOrCreateConfig(Project target) {
         SymbolUploadConfiguration config = target.extensions.findByType(SymbolUploadConfiguration.class)
         if (config == null) {
@@ -46,8 +56,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
     private Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
         if (config.configPath != null) {
-            File configFile = new File(config.configPath)
-            return UploadProguardMapping.parseConfigFile(configFile)
+            return UploadProGuardMapping.parseConfigFile(config.configPath)
         } else {
             Map<String, String> configValues = new HashMap<>();
 

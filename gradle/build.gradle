@@ -5,6 +5,7 @@ plugins {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     jcenter()
 }
@@ -16,8 +17,19 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 dependencies {
+    compileOnly 'com.android.tools.build:gradle:[2.2.2,3.0)'
+
     compile gradleApi()
     compile localGroovy()
-    compileOnly 'com.android.tools.build:gradle:[2.2.2,3.0)'
+    compile 'com.flurry:proguard-upload:1.0.0-SNAPSHOT'
+
     testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+publishing {
+    publications {
+        plugin(MavenPublication) {
+            from components.java
+        }
+    }
 }

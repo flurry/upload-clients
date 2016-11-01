@@ -1,7 +1,8 @@
 dev/
 .idea/
-gradle/build
 gradle/.gradle
+gradle/build
+gradle/out
 target/
 
 *.pyc
