@@ -1,17 +1,9 @@
 {
     "data": {
         "type": "upload",
-        "attributes": {
-            "uploadType": "ANDROID",
-            "contentLength": UPLOAD_SIZE
-        },
+        "attributes": {"uploadType": "ANDROID", "contentLength": UPLOAD_SIZE},
         "relationships": {
-            "project": {
-                "data": {
-                    "id": PROJECT_ID,
-                    "type": "project"
-                }
-            }
+            "project": {"data": {"id": PROJECT_ID, "type": "project"}}
         }
     }
 }

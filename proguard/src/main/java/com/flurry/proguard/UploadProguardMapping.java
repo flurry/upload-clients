@@ -48,11 +48,11 @@ import java.util.zip.GZIPOutputStream;
 public class UploadProGuardMapping {
     private static final String METADATA_BASE = "https://crash-metadata.flurry.com/pulse/v1";
     private static final String UPLOAD_BASE = "https://upload.flurry.com/upload/v1";
-    private static final int FIVE_SECONDS_IN_MS = 5 * 1000;
-    private static final int ONE_MINUTE_IN_MS = 60 * 1000;
-    private static final int TEN_MINUTES_IN_MS = 10 * ONE_MINUTE_IN_MS;
+    public static final int FIVE_SECONDS_IN_MS = 5 * 1000;
+    public static final int ONE_MINUTE_IN_MS = 60 * 1000;
+    public static final int TEN_MINUTES_IN_MS = 10 * ONE_MINUTE_IN_MS;
 
-    private static boolean EXIT_PROCESS = true;
+    private static boolean EXIT_PROCESS_ON_ERROR = false;
     private static Logger LOGGER = LoggerFactory.getLogger(UploadProGuardMapping.class.getName());
     private static final RequestConfig REQUEST_CONFIG = RequestConfig.custom()
                 .setConnectTimeout(FIVE_SECONDS_IN_MS) // 5 Seconds
@@ -83,20 +83,12 @@ public class UploadProGuardMapping {
             System.exit(1);
         }
 
+        EXIT_PROCESS_ON_ERROR = true;
         uploadFile(res.getString("api_key"), res.getString("uuid"), res.getString("path"), res.getString("token"), res.getInt("timeout"));
     }
 
     public static void setLogger(Logger logger) {
         LOGGER = logger;
-    }
-
-    /**
-     * Configures whether the process should exit on failure
-     *
-     * @param failHard if the process should exit on failure
-     */
-    public static void setFailHard(boolean failHard) {
-        EXIT_PROCESS = failHard;
     }
 
     /**
@@ -111,10 +103,10 @@ public class UploadProGuardMapping {
 
         try {
             List<String> text = Files.readAllLines(configFile.toPath());
-            text.stream().filter(line -> line.indexOf("=") != -1)
+            config = text.stream().filter(line -> line.indexOf("=") != -1)
                 .collect(Collectors.toMap(
-                            line -> line.substring(0, line.indexOf("=")),
-                            line -> line.substring(line.indexOf("=") + 1)));
+                            line -> line.substring(0, line.indexOf("=")).replaceAll("\\s", ""),
+                            line -> line.substring(line.indexOf("=") + 1).replaceAll("\\s", "")));
         } catch (IOException e) {
             failWithError("Bad config file {}", configFile.getAbsolutePath(), e);
         }
@@ -134,8 +126,18 @@ public class UploadProGuardMapping {
     public static void uploadFile(String apiKey, String uuid, String pathToFile, String token, int timeout) {
         File file = new File(pathToFile);
         if (file.isDirectory()) {
-            failWithError(pathToFile + " is a directory. Please retry with path to the ProGuard file.");
+            failWithError("{} is a directory. Please provide the path to mapping.txt", pathToFile);
         }
+        if (apiKey == null) {
+            failWithError("No API key provided");
+        }
+        if (uuid == null) {
+            failWithError("No UUID provided");
+        }
+        if (token == null) {
+            failWithError("No token provided");
+        }
+
         File zippedFile = createArchive(file, uuid);
         String projectId = lookUpProjectId(apiKey, token);
         LOGGER.info("Found project {} for api key {}", projectId, apiKey);
@@ -221,7 +223,7 @@ public class UploadProGuardMapping {
         try {
             return new JSONObject(EntityUtils.toString(httpEntity));
         } catch (IOException e) {
-            failWithError("IO Exception while reading Json from HttpEntity", e);
+            failWithError("Cannot read HttpEntity {}", httpEntity, e);
             return null;
         }
     }
@@ -236,7 +238,7 @@ public class UploadProGuardMapping {
         try {
             return IOUtils.toString(is);
         } catch (IOException e) {
-            failWithError("IO Exception while getting Json from /json/upload.json", e);
+            failWithError("Cannot read /json/upload.json", e);
             return null;
         }
     }
@@ -250,7 +252,7 @@ public class UploadProGuardMapping {
      * @return the id of the created upload
      */
     private static String createUpload(String projectId, String payload, String token) {
-        String postUrl = String.format("%s/project/%d/uploads", METADATA_BASE, projectId);
+        String postUrl = String.format("%s/project/%s/uploads", METADATA_BASE, projectId);
         List<Header> requestHeaders = getMetadataHeaders(token);
         HttpPost postRequest = new HttpPost(postUrl);
         postRequest.setEntity(new StringEntity(payload, Charset.forName("UTF-8")));
@@ -284,7 +286,7 @@ public class UploadProGuardMapping {
      * @param response the API response
      * @param validStatuses the list of acceptable statuses
      */
-    private static void expectStatus(HttpResponse response, int... validStatuses) {
+    private static void expectStatus(HttpResponse response, Integer... validStatuses) {
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
             failWithError("The provided token is expired");
@@ -334,11 +336,11 @@ public class UploadProGuardMapping {
                             failWithError("Exception while waiting for the upload to be processed", e);
                         }
                     } else {
-                        failWithError("Upload not processed after {}ms", maxWaitTime);
+                        failWithError("Upload not processed after {}s", maxWaitTime / 1000);
                     }
 
             }
-            LOGGER.debug("Upload still not processed after {}", waitingTime);
+            LOGGER.debug("Upload still not processed after {}s", waitingTime / 1000);
         }
     }
 
@@ -367,7 +369,7 @@ public class UploadProGuardMapping {
         try {
             return HTTP_CLIENT.execute(request);
         } catch (IOException e) {
-            failWithError("IO Exception while doing an Http Request", e);
+            failWithError("IO Exception during request: {}", request, e);
             return null;
         }
     }
@@ -409,7 +411,7 @@ public class UploadProGuardMapping {
      */
     private static void failWithError(String format, Object... args) {
         LOGGER.error(format, args);
-        if (EXIT_PROCESS) {
+        if (EXIT_PROCESS_ON_ERROR) {
             System.exit(1);
         } else {
             String message = format;

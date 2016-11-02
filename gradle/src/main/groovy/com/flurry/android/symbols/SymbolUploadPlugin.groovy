@@ -13,19 +13,29 @@ import com.flurry.proguard.UploadProGuardMapping
  */
 class SymbolUploadPlugin implements Plugin<Project> {
     public static final String CONFIGURATION_KEY = "flurryCrash"
+    public static final String FLURRY_UUID_KEY = "com.flurry.crash.map_id"
+
     public static final String API_KEY = "api-key"
     public static final String TOKEN = "token"
-    public static final String FLURRY_UUID_KEY = "com.flurry.crash.map_id"
+    public static final String TIMEOUT = "timeout"
 
     @Override
     void apply(Project project) {
         UploadProGuardMapping.logger = project.logger
-        UploadProGuardMapping.failHard = false
         getOrCreateConfig(project)
 
         project.afterEvaluate {
             SymbolUploadConfiguration config = getOrCreateConfig(project)
             Map<String, String> configValues = evaluateConfig(config)
+            String apiKey = configValues[API_KEY]
+            String token = configValues[TOKEN]
+            int timeout = configValues[TIMEOUT].toInteger()
+
+            if (!apiKey) {
+                throw new IllegalStateException("You must provide the project's an API key")
+            } else if (!token) {
+                throw new IllegalStateException("You must provide a valid")
+            }
 
             project.android.applicationVariants.all { BaseVariant variant ->
                 if (variant.mappingFile) {
@@ -34,9 +44,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
-                        String apiKey = configValues.get(API_KEY)
-                        String token = configValues.get(TOKEN)
-                        UploadProGuardMapping.uploadFile(apiKey, token, uuid, variant.mappingFile)
+                        UploadProGuardMapping.uploadFile(apiKey, uuid, variant.mappingFile.absolutePath, token, timeout)
                     }
                 }
             }
@@ -58,15 +66,20 @@ class SymbolUploadPlugin implements Plugin<Project> {
     }
 
     private Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
-        if (config.configPath != null) {
-            return UploadProGuardMapping.parseConfigFile(config.configPath)
-        } else {
-            Map<String, String> configValues = new HashMap<>();
+        Map<String, String> configValues = new HashMap<>();
 
-            configValues.put(API_KEY, config.apiKey);
-            configValues.put(TOKEN, config.useEnvVar ? System.getenv(config.token) : config.token)
-
-            return configValues;
+        if (config.apiKey) {
+            configValues[API_KEY] = config.apiKey
         }
+        if (config.token) {
+            configValues[TOKEN] = config.useEnvVar ? System.getenv(config.token) : config.token
+        }
+        configValues.put(TIMEOUT, config.uploadTimeout)
+
+        if (config.configPath != null) {
+            configValues.putAll(UploadProGuardMapping.parseConfigFile(config.configPath))
+        }
+
+        return configValues
     }
 }

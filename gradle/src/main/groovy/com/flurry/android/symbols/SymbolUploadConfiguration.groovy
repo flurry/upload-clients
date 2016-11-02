@@ -11,6 +11,7 @@ class SymbolUploadConfiguration {
     String token = null
     boolean useEnvVar = true
     String configPath = null
+    int uploadTimeout = 300
 
     public void apiKey(String apiKey) {
         this.apiKey = apiKey
@@ -26,5 +27,21 @@ class SymbolUploadConfiguration {
 
     public void configPath(String configPath) {
         this.configPath = configPath
+    }
+
+    public void uploadTimeout(int uploadTimeout) {
+        this.uploadTimeout = uploadTimeout
+    }
+
+
+    @Override
+    public String toString() {
+        return "SymbolUploadConfiguration{" +
+                "apiKey='" + apiKey + '\'' +
+                ", token='" + token + '\'' +
+                ", useEnvVar=" + useEnvVar +
+                ", configPath='" + configPath + '\'' +
+                ", uploadTimeout=" + uploadTimeout +
+                '}';
     }
 }
