@@ -32,9 +32,9 @@ class SymbolUploadPlugin implements Plugin<Project> {
             int timeout = configValues[TIMEOUT].toInteger()
 
             if (!apiKey) {
-                throw new IllegalStateException("You must provide the project's an API key")
+                throw new IllegalStateException("You must provide the project's API key")
             } else if (!token) {
-                throw new IllegalStateException("You must provide a valid")
+                throw new IllegalStateException("You must provide a valid token")
             }
 
             project.android.applicationVariants.all { BaseVariant variant ->

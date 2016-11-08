@@ -2,7 +2,7 @@
 
 Flurry's Crash service can symbolicate the crashes reported by Flurry's SDK.
 This repository contains code to uploads the symbols required to properly symbolicate
-crashes from iOS apps and Android apps with ProGuard obfuscation. Both of these clients require
+crashes from iOS apps and deobfuscate Android apps with ProGuard obfuscation. Both of these clients require
 [programmatic access keys][programmatic-access], these keys are **NOT** the same credentials
 that were previously used to access the apis from [api.flurry.com](api.flurry.com).
 

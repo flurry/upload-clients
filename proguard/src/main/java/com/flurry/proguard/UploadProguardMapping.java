@@ -42,6 +42,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPOutputStream;
 
@@ -92,21 +93,16 @@ public class UploadProGuardMapping {
     }
 
     /**
-     * Parses an INI-style config file
+     * Parses an properties file
      *
      * @param filePath the path to the config file
      * @return a map of the keys and values from the config
      */
-    public static Map<String, String> parseConfigFile(String filePath) {
+    public static Properties parseConfigFile(String filePath) {
+        Properties config = new Properties();
         File configFile = new File(filePath);
-        Map<String, String> config = new HashMap<>();
-
         try {
-            List<String> text = Files.readAllLines(configFile.toPath());
-            config = text.stream().filter(line -> line.indexOf("=") != -1)
-                .collect(Collectors.toMap(
-                            line -> line.substring(0, line.indexOf("=")).replaceAll("\\s", ""),
-                            line -> line.substring(line.indexOf("=") + 1).replaceAll("\\s", "")));
+            config.load(new FileInputStream(configFile));
         } catch (IOException e) {
             failWithError("Bad config file {}", configFile.getAbsolutePath(), e);
         }
@@ -418,10 +414,7 @@ public class UploadProGuardMapping {
             Throwable cause = null;
             if (args.length > 0 && args[args.length - 1] instanceof Throwable) {
                 cause = (Throwable) args[args.length - 1];
-                Object[] newArgs = new Object[args.length - 1];
-                for (int i = 0; i < args.length - 1; i++) {
-                    newArgs[i] = args[i];
-                }
+                args = Arrays.copyOf(args, args.length - 1);
             }
             if (args.length > 0) {
                 message = String.format(format.replace("{}", "%s"), args);

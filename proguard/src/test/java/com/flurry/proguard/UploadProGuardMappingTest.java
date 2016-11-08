@@ -4,6 +4,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 
 /**
@@ -16,7 +17,7 @@ public class UploadProGuardMappingTest {
     @Test
     public void testParseConfigFile() {
         String path = getResourcePath("flurry.config");
-        Map<String, String> vals = UploadProGuardMapping.parseConfigFile(path);
+        Properties vals = UploadProGuardMapping.parseConfigFile(path);
 
         Assert.assertEquals(vals.get("api-key"), "FOO_API_KEY");
         Assert.assertEquals(vals.get("token"), "FOO_TOKEN");
