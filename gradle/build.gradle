@@ -1,0 +1,35 @@
+plugins {
+    id 'groovy'
+    id 'java'
+    id 'maven-publish'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    jcenter()
+}
+
+group 'com.flurry'
+version '1.0.0'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+dependencies {
+    compileOnly 'com.android.tools.build:gradle:[2.0.0,3.0)'
+
+    compile gradleApi()
+    compile localGroovy()
+    compile 'com.flurry:proguard-upload:1.0.0-SNAPSHOT'
+
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+}
+
+publishing {
+    publications {
+        plugin(MavenPublication) {
+            from components.java
+        }
+    }
+}
