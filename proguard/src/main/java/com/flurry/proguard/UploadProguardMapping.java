@@ -230,13 +230,14 @@ public class UploadProGuardMapping {
      * @return a mostly complete JSON string
      */
     private static String getUploadTemplate() {
-        InputStream is =  UploadProGuardMapping.class.getResourceAsStream("/json/upload.json");
-        try {
-            return IOUtils.toString(is);
-        } catch (IOException e) {
-            failWithError("Cannot read /json/upload.json", e);
-            return null;
-        }
+        return "{\"data\": {" +
+                    "\"type\": \"upload\"," +
+                    "\"attributes\":" +
+                        "{\"uploadType\": \"ANDROID\", \"contentLength\": UPLOAD_SIZE}," +
+                    "\"relationships\":" +
+                        "{\"project\":{\"data\":{\"id\":PROJECT_ID,\"type\":\"project\"}}}" +
+                    "}" +
+                "}";
     }
 
     /**
