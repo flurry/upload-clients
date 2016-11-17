@@ -1,13 +1,20 @@
+buildscript {
+    repositories {
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "com.gradle.publish:plugin-publish-plugin:0.9.6"
+    }
+}
+
 plugins {
     id 'groovy'
     id 'java'
     id 'maven-publish'
-}
-
-repositories {
-    mavenLocal()
-    mavenCentral()
-    jcenter()
+    id 'com.jfrog.bintray' version '1.7'
+    id 'com.gradle.plugin-publish' version '0.9.6'
 }
 
 group 'com.flurry'
@@ -16,12 +23,29 @@ version '1.0.0'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
+String bintrayUsername = project.hasProperty("bintrayPluginUser") ? project.property("bintrayPluginUser") : ""  // Keep out of source control
+String bintrayPassword = project.hasProperty("bintrayPluginPass") ? project.property("bintrayPluginPass") : ""   // Keep out of source control
+
+repositories {
+    jcenter()
+    maven {
+        url  "http://yahoo.bintray.com/maven"
+    }
+}
+
 dependencies {
     compileOnly 'com.android.tools.build:gradle:[2.0.0,3.0)'
 
     compile gradleApi()
     compile localGroovy()
-    compile 'com.flurry:proguard-upload:1.0.0-SNAPSHOT'
+    compile 'com.flurry:proguard-upload:1.0.0'
+
+    // transitive deps aren't being resolved from proguard-upload for some reason...
+    compile 'org.json:json:20160810'
+    compile 'org.apache.httpcomponents:httpclient:4.5.1'
+    compile 'org.apache.commons:commons-compress:1.12'
+    compile 'net.sourceforge.argparse4j:argparse4j:0.7.0'
+    compile 'org.slf4j:slf4j-simple:1.7.21'
 
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }
@@ -33,3 +57,35 @@ publishing {
         }
     }
 }
+
+bintray {
+    user = "$bintrayUsername"
+    key = "$bintrayPassword"
+    publications = ['plugin']
+    pkg {
+        userOrg = 'yahoo'
+        repo = 'maven'
+        name = 'flurry-android-proguard-plugin'
+        licenses = ['MIT']
+        vcsUrl = 'https://github.com/flurry/upload-clients.git'
+        version {
+            name = "$project.version"
+        }
+
+    }
+}
+
+pluginBundle {
+    website = 'https://github.com/flurry/upload-clients'
+    vcsUrl = 'https://github.com/flurry/upload-clients'
+    description = 'Send ProGuard information to Flurry to allow deobfuscation of received stack traces'
+    tags = ['ProGuard', 'Android', 'Flurry']
+
+    plugins {
+        proguardPlugin {
+            id = 'com.flurry.android.symbols'
+            displayName = 'Flurry ProGuard plugin'
+        }
+    }
+}
+

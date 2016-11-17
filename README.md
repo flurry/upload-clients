@@ -55,8 +55,22 @@ generated `mapping.txt` file manually before any stack traces received from that
 
 1. Apply the Flurry android crash plugin to your app's build
   ```
-  apply plugin: 'com.flurry.android.symbols'
+  buildscript {
+    repositories {
+      maven {
+        url "https://plugins.gradle.org/m2/"
+      }
+      maven {
+        url  "http://yahoo.bintray.com/maven"
+      }
+    }
+    dependencies {
+      classpath "gradle.plugin.com.flurry:symbol-upload:1.0.0"
+    }
+  }
 
+  apply plugin: 'com.flurry.android.symbols'
+  
   ...
 
   flurryCrash {
