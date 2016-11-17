@@ -3,7 +3,9 @@ dev/
 gradle/.gradle
 gradle/build
 gradle/out
-target/
+proguard/.gradle
+proguard/build
+proguard/out
 
 *.pyc
 *.iml
