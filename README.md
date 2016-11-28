@@ -32,11 +32,7 @@ the _Run script only when installing` checkbox in the configuration.
 
 ## How to send iOS symbols for a BitCode enabled app
 
-The recommended approach is to use the Flurry FastLane plugin.
-
-1. Download and Install [Fastlane](https://github.com/fastlane/fastlane)
-1. Add the [Flurry Fastlane Plugin](https://github.com/flurry/fastlane-plugin-flurry) to your project.
-1. Configure your [Fastfile](https://github.com/flurry/fastlane-plugin-flurry#example-fastfile)
+The recommended approach is to use the [Flurry Fastlane plugin](https://github.com/flurry/fastlane-plugin-flurry).
 
 If you choose not to use FastLane, this can be done manually through the following steps:
 
