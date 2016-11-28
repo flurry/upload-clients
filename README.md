@@ -32,6 +32,10 @@ the _Run script only when installing` checkbox in the configuration.
 
 ## How to send iOS symbols for a BitCode enabled app
 
+The recommended approach is to use the [Flurry Fastlane plugin](https://github.com/flurry/fastlane-plugin-flurry).
+
+If you choose not to use FastLane, this can be done manually through the following steps:
+
 1. Download symbols from iTunesConnect
   - Go to iTunesConnect
   ![Developer Account](instructions/bitcode-connect.png)
@@ -53,6 +57,7 @@ the _Run script only when installing` checkbox in the configuration.
 *Note*: If you have ProGuard enabled and you do not send your mapping file at build time then you must upload the
 generated `mapping.txt` file manually before any stack traces received from that version of your app can be deobfuscated.
 
+1. Install Flurry SDK 6.7.0 or greater.
 1. Apply the Flurry android crash plugin to your app's build
   ```
   buildscript {
