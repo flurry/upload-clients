@@ -431,9 +431,14 @@ def exec_request(request, task, timeout=10):
             url=e.url,
             code=e.code,
             body=body)
-    except (httplib.HTTPException, urllib2.URLError) as e:
+    except httplib.HTTPException as e:
         die("error {task}. {err} {errtype}", task=task, err=e, errtype=type(e))
-
+    except urllib2.URLError:
+        # Retry after first failure
+        try:
+            return urllib2.urlopen(request, **kwargs)
+        except urllib2.URLError as e:
+            die("error {task}. {err} {errtype}", task=task, err=e, errtype=type(e))
 
 def die(fmt, *args, **kwargs):
     """exit the script and print an error to the console"""
