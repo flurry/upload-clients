@@ -482,8 +482,8 @@ def main():
     log.debug("search_path=%s", search_path)
     log.debug("wait=%s", wait)
     log.debug("max_wait=%s", max_wait)
-    log.debug("singe_file=%b", single)
-    log.debug("connect_archive=%b", archive)
+    log.debug("singe_file=%s", single)
+    log.debug("connect_archive=%s", archive)
     log.debug("--------------------")
 
     if not token or not api_key:
