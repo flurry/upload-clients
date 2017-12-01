@@ -22,11 +22,11 @@ class SymbolUploadPlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
         UploadProGuardMapping.logger = project.logger
-        getOrCreateConfig(project)
+        getOrCreateConfig project
 
         project.afterEvaluate {
-            SymbolUploadConfiguration config = getOrCreateConfig(project)
-            Map<String, String> configValues = evaluateConfig(config)
+            SymbolUploadConfiguration config = getOrCreateConfig project
+            Map<String, String> configValues = evaluateConfig config
             String apiKey = configValues[API_KEY]
             String token = configValues[TOKEN]
             int timeout = configValues[TIMEOUT].toInteger()
@@ -40,7 +40,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
             project.android.applicationVariants.all { BaseVariant variant ->
                 if (variant.mappingFile) {
                     String uuid = UUID.randomUUID().toString()
-                    project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
+                    project.logger.lifecycle "Variant=${variant.baseName} UUID=${uuid}"
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
@@ -57,16 +57,17 @@ class SymbolUploadPlugin implements Plugin<Project> {
      * @param target the project to find/create the configuration in
      * @return the project's configuration container
      */
-    private SymbolUploadConfiguration getOrCreateConfig(Project target) {
-        SymbolUploadConfiguration config = target.extensions.findByType(SymbolUploadConfiguration.class)
-        if (config == null) {
-            config = target.extensions.create(CONFIGURATION_KEY, SymbolUploadConfiguration.class)
+    private static SymbolUploadConfiguration getOrCreateConfig(Project target) {
+        SymbolUploadConfiguration config = target.extensions.findByType SymbolUploadConfiguration
+        if (!config) {
+            config = target.extensions.create CONFIGURATION_KEY, SymbolUploadConfiguration
         }
-        return config
+
+        config
     }
 
-    private Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
-        Map<String, String> configValues = new HashMap<>();
+    private static Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
+        Map<String, String> configValues = new HashMap<>()
 
         if (config.apiKey) {
             configValues[API_KEY] = config.apiKey
@@ -74,12 +75,12 @@ class SymbolUploadPlugin implements Plugin<Project> {
         if (config.token) {
             configValues[TOKEN] = config.useEnvVar ? System.getenv(config.token) : config.token
         }
-        configValues.put(TIMEOUT, config.uploadTimeout)
+        configValues.put TIMEOUT, config.uploadTimeout as String
 
-        if (config.configPath != null) {
-            configValues.putAll(UploadProGuardMapping.parseConfigFile(config.configPath))
+        if (config.configPath) {
+            configValues.putAll UploadProGuardMapping.parseConfigFile(config.configPath) as Map<? extends String, ? extends String>
         }
 
-        return configValues
+        configValues
     }
 }
