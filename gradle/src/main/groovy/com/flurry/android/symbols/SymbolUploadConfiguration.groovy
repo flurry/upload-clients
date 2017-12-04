@@ -35,7 +35,7 @@ class SymbolUploadConfiguration {
 
     @Override
     String toString() {
-        "SymbolUploadConfiguration{" +
+        return "SymbolUploadConfiguration{" +
                 "apiKey='" + apiKey + '\'' +
                 ", token='" + token + '\'' +
                 ", useEnvVar=" + useEnvVar +

@@ -62,8 +62,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
         if (!config) {
             config = target.extensions.create CONFIGURATION_KEY, SymbolUploadConfiguration
         }
-
-        config
+        return config
     }
 
     private static Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
@@ -81,6 +80,6 @@ class SymbolUploadPlugin implements Plugin<Project> {
             configValues.putAll UploadProGuardMapping.parseConfigFile(config.configPath) as Map<? extends String, ? extends String>
         }
 
-        configValues
+        return configValues
     }
 }
