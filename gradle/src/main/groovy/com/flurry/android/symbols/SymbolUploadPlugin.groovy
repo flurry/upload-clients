@@ -22,11 +22,11 @@ class SymbolUploadPlugin implements Plugin<Project> {
     @Override
     void apply(Project project) {
         UploadProGuardMapping.logger = project.logger
-        getOrCreateConfig project
+        getOrCreateConfig(project)
 
         project.afterEvaluate {
-            SymbolUploadConfiguration config = getOrCreateConfig project
-            Map<String, String> configValues = evaluateConfig config
+            SymbolUploadConfiguration config = getOrCreateConfig(project)
+            Map<String, String> configValues = evaluateConfig(config)
             String apiKey = configValues[API_KEY]
             String token = configValues[TOKEN]
             int timeout = configValues[TIMEOUT].toInteger()
@@ -40,7 +40,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
             project.android.applicationVariants.all { BaseVariant variant ->
                 if (variant.mappingFile) {
                     String uuid = UUID.randomUUID().toString()
-                    project.logger.lifecycle "Variant=${variant.baseName} UUID=${uuid}"
+                    project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
@@ -58,9 +58,9 @@ class SymbolUploadPlugin implements Plugin<Project> {
      * @return the project's configuration container
      */
     private static SymbolUploadConfiguration getOrCreateConfig(Project target) {
-        SymbolUploadConfiguration config = target.extensions.findByType SymbolUploadConfiguration
+        SymbolUploadConfiguration config = target.extensions.findByType(SymbolUploadConfiguration)
         if (!config) {
-            config = target.extensions.create CONFIGURATION_KEY, SymbolUploadConfiguration
+            config = target.extensions.create(CONFIGURATION_KEY, SymbolUploadConfiguration)
         }
         return config
     }
@@ -74,10 +74,10 @@ class SymbolUploadPlugin implements Plugin<Project> {
         if (config.token) {
             configValues[TOKEN] = config.useEnvVar ? System.getenv(config.token) : config.token
         }
-        configValues.put TIMEOUT, config.uploadTimeout as String
+        configValues.put(TIMEOUT, config.uploadTimeout as String)
 
         if (config.configPath) {
-            configValues.putAll UploadProGuardMapping.parseConfigFile(config.configPath) as Map<? extends String, ? extends String>
+            configValues.putAll(UploadProGuardMapping.parseConfigFile(config.configPath) as Map<? extends String, ? extends String>)
         }
 
         return configValues
