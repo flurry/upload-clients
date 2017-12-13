@@ -13,26 +13,6 @@ class SymbolUploadConfiguration {
     String configPath
     int uploadTimeout = 300
 
-    void apiKey(String apiKey) {
-        this.apiKey = apiKey
-    }
-
-    void token(String token) {
-        this.token = token
-    }
-
-    void useEnvironmentVariable(boolean useEnv) {
-        this.useEnvVar = useEnv
-    }
-
-    void configPath(String configPath) {
-        this.configPath = configPath
-    }
-
-    void uploadTimeout(int uploadTimeout) {
-        this.uploadTimeout = uploadTimeout
-    }
-
     @Override
     String toString() {
         return "SymbolUploadConfiguration{" +
