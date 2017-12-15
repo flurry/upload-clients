@@ -4,9 +4,10 @@
 package com.flurry.android.symbols
 
 import com.android.build.gradle.api.BaseVariant
+import com.flurry.proguard.AndroidUploadType
+import com.flurry.proguard.UploadMapping
 import org.gradle.api.Plugin
 import org.gradle.api.Project
-import com.flurry.proguard.UploadProGuardMapping
 
 /**
  * A Gradle plugin that finds the generated ProGuard file and sends it to Flurry's crash service
@@ -18,10 +19,11 @@ class SymbolUploadPlugin implements Plugin<Project> {
     public static final String API_KEY = "api-key"
     public static final String TOKEN = "token"
     public static final String TIMEOUT = "timeout"
+    public static final String NDK = "ndk"
 
     @Override
     void apply(Project project) {
-        UploadProGuardMapping.logger = project.logger
+        UploadMapping.logger = project.logger
         getOrCreateConfig(project)
 
         project.afterEvaluate {
@@ -30,6 +32,8 @@ class SymbolUploadPlugin implements Plugin<Project> {
             String apiKey = configValues[API_KEY]
             String token = configValues[TOKEN]
             int timeout = configValues[TIMEOUT].toInteger()
+            boolean ndk = configValues[NDK].toBoolean()
+            project.logger.lifecycle("ndk " + ndk)
 
             if (!apiKey) {
                 throw new IllegalStateException("You must provide the project's API key")
@@ -44,8 +48,12 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
-                        UploadProGuardMapping.uploadFile(apiKey, uuid, variant.mappingFile.absolutePath, token, timeout)
+                        UploadMapping.uploadFile(apiKey, uuid, variant.mappingFile.absolutePath, token, timeout,
+                                AndroidUploadType.ANDROID_JAVA)
                     }
+                }
+                if (ndk) {
+                    NdkSymbolUpload.upload(variant, configValues, )
                 }
             }
         }
@@ -74,10 +82,11 @@ class SymbolUploadPlugin implements Plugin<Project> {
         if (config.token) {
             configValues[TOKEN] = config.useEnvVar ? System.getenv(config.token) : config.token
         }
+        configValues[NDK] = config.ndk.toString()
         configValues.put(TIMEOUT, config.uploadTimeout)
 
         if (config.configPath != null) {
-            configValues.putAll(UploadProGuardMapping.parseConfigFile(config.configPath))
+            configValues.putAll(UploadMapping.parseConfigFile(config.configPath))
         }
 
         return configValues

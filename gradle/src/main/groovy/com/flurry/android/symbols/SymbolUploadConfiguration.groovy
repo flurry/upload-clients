@@ -12,6 +12,7 @@ class SymbolUploadConfiguration {
     boolean useEnvVar = true
     String configPath = null
     int uploadTimeout = 300
+    boolean ndk
 
     public void apiKey(String apiKey) {
         this.apiKey = apiKey
