@@ -42,7 +42,7 @@ import static groovy.io.FileType.FILES
 class NdkSymbolUpload {
 
     static void upload(BaseVariant variant, Map<String, String> configValues) {
-        Closure processor = { File sharedObject ->
+        Closure uploader = { File sharedObject ->
             String apiKey = configValues[SymbolUploadPlugin.API_KEY]
             String token = configValues[SymbolUploadPlugin.TOKEN]
             int timeout = configValues[SymbolUploadPlugin.TIMEOUT].toInteger()
@@ -56,8 +56,8 @@ class NdkSymbolUpload {
         for (ExternalNativeBuildTask task : tasks) {
             File objFolder = task.objFolder
             File soFolder = task.soFolder
-            findSharedObjectFiles(objFolder, processor)
-            findSharedObjectFiles(soFolder, processor)
+            findSharedObjectFiles(objFolder, uploader)
+            findSharedObjectFiles(soFolder, uploader)
         }
     }
 
