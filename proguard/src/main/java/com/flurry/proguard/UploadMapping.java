@@ -121,8 +121,8 @@ public class UploadMapping {
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
-    public static void uploadFile(String apiKey, String uuid, String pathToFile, String token, int timeout
-            , AndroidUploadType androidUploadType) {
+    public static void uploadFile(String apiKey, String uuid, String pathToFile, String token, int timeout,
+                                  AndroidUploadType androidUploadType) {
         File file = new File(pathToFile);
         if (file.isDirectory()) {
             failWithError("{} is a directory. Please provide the path to mapping.txt", pathToFile);

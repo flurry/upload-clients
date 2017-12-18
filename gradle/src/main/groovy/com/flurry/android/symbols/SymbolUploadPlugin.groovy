@@ -53,7 +53,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
                     }
                 }
                 if (ndk) {
-                    NdkSymbolUpload.upload(variant, configValues, )
+                    NdkSymbolUpload.upload(variant, configValues)
                 }
             }
         }
