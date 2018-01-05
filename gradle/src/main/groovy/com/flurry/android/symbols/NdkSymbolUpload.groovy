@@ -61,7 +61,7 @@ class NdkSymbolUpload {
             String token = configValues[SymbolUploadPlugin.TOKEN]
             int timeout = configValues[SymbolUploadPlugin.TIMEOUT].toInteger()
 
-            UploadMapping.uploadFile(apiKey, null, files.toArray(new String[numberOfSharedObjectFiles]), token, timeout,
+            UploadMapping.uploadFiles(apiKey, null, files.toArray(new String[numberOfSharedObjectFiles]), token, timeout,
                     AndroidUploadType.ANDROID_NATIVE)
         }
     }

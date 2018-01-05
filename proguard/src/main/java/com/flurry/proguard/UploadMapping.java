@@ -85,10 +85,10 @@ public class UploadMapping {
 
         EXIT_PROCESS_ON_ERROR = true;
         if (res.getBoolean("ndk")) {
-            uploadFile(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
+            uploadFiles(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
                     res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_NATIVE);
         } else {
-            uploadFile(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
+            uploadFiles(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
                     res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_JAVA);
         }
     }
@@ -123,16 +123,16 @@ public class UploadMapping {
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
-    public static void uploadFile(String apiKey, String uuid, String[] paths, String token, int timeout,
-                                  AndroidUploadType androidUploadType) {
+    public static void uploadFiles(String apiKey, String uuid, String[] paths, String token, int timeout,
+                                   AndroidUploadType androidUploadType) {
         File[] files = new File[paths.length];
-        IntStream.range(0, paths.length)
-                .forEach(i -> {
-                    files[i] = new File(paths[i]);
-                    if (files[i].isDirectory()) {
-                        failWithError("{} is a directory. Please provide the path to mapping.txt", paths[i]);
-                    }
-                });
+        for (int i = 0; i < paths.length; i++) {
+            files[i] = new File(paths[i]);
+            if (files[i].isDirectory()) {
+                failWithError("{} is a directory. Please provide the path to " + androidUploadType.getDisplayName()
+                        +  " mapping file " + paths[i]);
+            }
+        }
 
         if (apiKey == null) {
             failWithError("No API key provided");
