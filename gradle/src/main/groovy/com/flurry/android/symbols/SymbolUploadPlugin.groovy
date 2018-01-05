@@ -33,7 +33,6 @@ class SymbolUploadPlugin implements Plugin<Project> {
             String token = configValues[TOKEN]
             int timeout = configValues[TIMEOUT].toInteger()
             boolean ndk = configValues[NDK].toBoolean()
-            project.logger.lifecycle("ndk " + ndk)
 
             if (!apiKey) {
                 throw new IllegalStateException("You must provide the project's API key")
@@ -48,8 +47,8 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
-                        UploadMapping.uploadFile(apiKey, uuid, variant.mappingFile.absolutePath, token, timeout,
-                                AndroidUploadType.ANDROID_JAVA)
+                        UploadMapping.uploadFile(apiKey, uuid, [variant.mappingFile.absolutePath] as String[], token,
+                                timeout, AndroidUploadType.ANDROID_JAVA)
                     }
                 }
                 if (ndk) {

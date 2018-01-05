@@ -42,22 +42,27 @@ import static groovy.io.FileType.FILES
 class NdkSymbolUpload {
 
     static void upload(BaseVariant variant, Map<String, String> configValues) {
-        Closure uploader = { File sharedObject ->
-            String apiKey = configValues[SymbolUploadPlugin.API_KEY]
-            String token = configValues[SymbolUploadPlugin.TOKEN]
-            int timeout = configValues[SymbolUploadPlugin.TIMEOUT].toInteger()
-            String uuid = UUID.randomUUID().toString()
-
-            UploadMapping.uploadFile(apiKey, uuid, sharedObject.absolutePath, token, timeout,
-                    AndroidUploadType.ANDROID_NATIVE)
+        ArrayList<String> files = new ArrayList<>()
+        Closure addSharedObjectFiles = { File sharedObjectFile ->
+            files.add(sharedObjectFile.absolutePath)
         }
         
         Collection<ExternalNativeBuildTask> tasks = variant.externalNativeBuildTasks
         for (ExternalNativeBuildTask task : tasks) {
             File objFolder = task.objFolder
             File soFolder = task.soFolder
-            findSharedObjectFiles(objFolder, uploader)
-            findSharedObjectFiles(soFolder, uploader)
+            findSharedObjectFiles(objFolder, addSharedObjectFiles)
+            findSharedObjectFiles(soFolder, addSharedObjectFiles)
+        }
+
+        int numberOfSharedObjectFiles = files.size()
+        if (numberOfSharedObjectFiles < 1) {
+            String apiKey = configValues[SymbolUploadPlugin.API_KEY]
+            String token = configValues[SymbolUploadPlugin.TOKEN]
+            int timeout = configValues[SymbolUploadPlugin.TIMEOUT].toInteger()
+
+            UploadMapping.uploadFile(apiKey, null, files.toArray(new String[numberOfSharedObjectFiles]), token, timeout,
+                    AndroidUploadType.ANDROID_NATIVE)
         }
     }
 

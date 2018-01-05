@@ -39,6 +39,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
+import java.util.stream.IntStream;
 import java.util.zip.GZIPOutputStream;
 
 public class UploadMapping {
@@ -83,10 +85,10 @@ public class UploadMapping {
 
         EXIT_PROCESS_ON_ERROR = true;
         if (res.getBoolean("ndk")) {
-            uploadFile(res.getString("api_key"), res.getString("uuid"), res.getString("path"),
+            uploadFile(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
                     res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_NATIVE);
         } else {
-            uploadFile(res.getString("api_key"), res.getString("uuid"), res.getString("path"),
+            uploadFile(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
                     res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_JAVA);
         }
     }
@@ -117,27 +119,32 @@ public class UploadMapping {
      *
      * @param apiKey the API key for the project being built
      * @param uuid the uuid for this build
-     * @param pathToFile the path to the ProGuard/Native mapping.txt file
+     * @param paths the paths to the ProGuard/Native mapping.txt files
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
-    public static void uploadFile(String apiKey, String uuid, String pathToFile, String token, int timeout,
+    public static void uploadFile(String apiKey, String uuid, String[] paths, String token, int timeout,
                                   AndroidUploadType androidUploadType) {
-        File file = new File(pathToFile);
-        if (file.isDirectory()) {
-            failWithError("{} is a directory. Please provide the path to mapping.txt", pathToFile);
-        }
+        File[] files = new File[paths.length];
+        IntStream.range(0, paths.length)
+                .forEach(i -> {
+                    files[i] = new File(paths[i]);
+                    if (files[i].isDirectory()) {
+                        failWithError("{} is a directory. Please provide the path to mapping.txt", paths[i]);
+                    }
+                });
+
         if (apiKey == null) {
             failWithError("No API key provided");
         }
-        if (uuid == null) {
+        if (androidUploadType == AndroidUploadType.ANDROID_JAVA && uuid == null) {
             failWithError("No UUID provided");
         }
         if (token == null) {
             failWithError("No token provided");
         }
 
-        File zippedFile = createArchive(file, uuid);
+        File zippedFile = createArchive(files, uuid);
         String projectId = lookUpProjectId(apiKey, token);
         LOGGER.info("Found project {} for api key {}", projectId, apiKey);
 
@@ -153,21 +160,25 @@ public class UploadMapping {
     }
 
     /**
-     * Create a gzipped tar archive containing the ProGuard/Native mapping file
+     * Create a gzipped tar archive containing the ProGuard/Native mapping files
      *
-     * @param file the mapping.txt file
-     * @param uuid the build uuid
+     * @param files array of mapping.txt files
      * @return the tar-gzipped archive
      */
-    private static File createArchive(File file, String uuid) {
+    private static File createArchive(File[] files, String uuid) {
         try {
             File tarZippedFile = File.createTempFile("tar-zipped-file", ".tgz");
             TarArchiveOutputStream taos = new TarArchiveOutputStream(
                         new GZIPOutputStream(
                                     new BufferedOutputStream(
                                                 new FileOutputStream(tarZippedFile))));
-            taos.putArchiveEntry(new TarArchiveEntry(file, uuid + ".txt"));
-            IOUtils.copy(new FileInputStream(file), taos);
+            for (File aFile : files) {
+                if (uuid == null) {
+                    uuid = UUID.randomUUID().toString();
+                }
+                taos.putArchiveEntry(new TarArchiveEntry(aFile, uuid + ".txt"));
+                IOUtils.copy(new FileInputStream(aFile), taos);
+            }
             taos.closeArchiveEntry();
             taos.finish();
             taos.close();

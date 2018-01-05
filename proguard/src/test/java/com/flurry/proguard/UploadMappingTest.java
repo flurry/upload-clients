@@ -30,7 +30,7 @@ public class UploadMappingTest {
         String path = getResourcePath("mapping.txt");
         String token = System.getenv(FLURRY_TOKEN);
 
-        UploadMapping.uploadFile(apiKey, uuid, path, token, UploadMapping.ONE_MINUTE_IN_MS,
+        UploadMapping.uploadFile(apiKey, uuid, new String[]{path}, token, UploadMapping.ONE_MINUTE_IN_MS,
                 AndroidUploadType.ANDROID_JAVA);
     }
 
