@@ -64,16 +64,16 @@ class SymbolUploadPlugin implements Plugin<Project> {
      * @param target the project to find/create the configuration in
      * @return the project's configuration container
      */
-    private SymbolUploadConfiguration getOrCreateConfig(Project target) {
-        SymbolUploadConfiguration config = target.extensions.findByType(SymbolUploadConfiguration.class)
-        if (config == null) {
-            config = target.extensions.create(CONFIGURATION_KEY, SymbolUploadConfiguration.class)
+    private static SymbolUploadConfiguration getOrCreateConfig(Project target) {
+        SymbolUploadConfiguration config = target.extensions.findByType(SymbolUploadConfiguration)
+        if (!config) {
+            config = target.extensions.create(CONFIGURATION_KEY, SymbolUploadConfiguration)
         }
         return config
     }
 
-    private Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
-        Map<String, String> configValues = new HashMap<>();
+    private static Map<String, String> evaluateConfig(SymbolUploadConfiguration config) {
+        Map<String, String> configValues = new HashMap<>()
 
         if (config.apiKey) {
             configValues[API_KEY] = config.apiKey
@@ -82,10 +82,10 @@ class SymbolUploadPlugin implements Plugin<Project> {
             configValues[TOKEN] = config.useEnvVar ? System.getenv(config.token) : config.token
         }
         configValues[NDK] = config.ndk.toString()
-        configValues.put(TIMEOUT, config.uploadTimeout)
+        configValues.put(TIMEOUT, config.uploadTimeout as String)
 
         if (config.configPath != null) {
-            configValues.putAll(UploadMapping.parseConfigFile(config.configPath))
+            configValues.putAll(UploadMapping.parseConfigFile(config.configPath) as Map<? extends String, ? extends String>)
         }
 
         return configValues
