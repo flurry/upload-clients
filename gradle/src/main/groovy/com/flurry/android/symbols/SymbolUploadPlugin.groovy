@@ -51,8 +51,10 @@ class SymbolUploadPlugin implements Plugin<Project> {
                                 timeout, AndroidUploadType.ANDROID_JAVA)
                     }
                 }
-                if (ndk) {
-                    NdkSymbolUpload.upload(variant, configValues)
+                variant.assemble.doLast {
+                    if (ndk) {
+                        NdkSymbolUpload.upload(variant, configValues, project.logger)
+                    }
                 }
             }
         }

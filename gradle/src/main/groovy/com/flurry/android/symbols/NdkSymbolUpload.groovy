@@ -7,6 +7,7 @@ import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.tasks.ExternalNativeBuildTask
 import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
+import org.gradle.api.logging.Logger
 
 import static groovy.io.FileType.FILES
 
@@ -41,9 +42,10 @@ import static groovy.io.FileType.FILES
 
 class NdkSymbolUpload {
 
-    static void upload(BaseVariant variant, Map<String, String> configValues) {
+    static void upload(BaseVariant variant, Map<String, String> configValues, Logger logger) {
         ArrayList<String> files = new ArrayList<>()
         Closure addSharedObjectFiles = { File sharedObjectFile ->
+            logger.lifecycle("Found .so file: " + sharedObjectFile.parentFile.name + "/" + sharedObjectFile.name)
             files.add(sharedObjectFile.absolutePath)
         }
         
@@ -56,7 +58,7 @@ class NdkSymbolUpload {
         }
 
         int numberOfSharedObjectFiles = files.size()
-        if (numberOfSharedObjectFiles < 1) {
+        if (numberOfSharedObjectFiles > 0) {
             String apiKey = configValues[SymbolUploadPlugin.API_KEY]
             String token = configValues[SymbolUploadPlugin.TOKEN]
             int timeout = configValues[SymbolUploadPlugin.TIMEOUT].toInteger()

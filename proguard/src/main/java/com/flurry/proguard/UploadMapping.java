@@ -40,7 +40,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.stream.IntStream;
 import java.util.zip.GZIPOutputStream;
 
 public class UploadMapping {
@@ -172,14 +171,12 @@ public class UploadMapping {
                         new GZIPOutputStream(
                                     new BufferedOutputStream(
                                                 new FileOutputStream(tarZippedFile))));
-            for (File aFile : files) {
-                if (uuid == null) {
-                    uuid = UUID.randomUUID().toString();
-                }
-                taos.putArchiveEntry(new TarArchiveEntry(aFile, uuid + ".txt"));
-                IOUtils.copy(new FileInputStream(aFile), taos);
+            for (File file : files) {
+                taos.putArchiveEntry(new TarArchiveEntry(file,
+                        (uuid != null && !uuid.isEmpty() ? uuid : UUID.randomUUID()) + ".txt"));
+                IOUtils.copy(new FileInputStream(file), taos);
+                taos.closeArchiveEntry();
             }
-            taos.closeArchiveEntry();
             taos.finish();
             taos.close();
             return tarZippedFile;
