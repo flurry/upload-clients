@@ -57,13 +57,12 @@ class NdkSymbolUpload {
             findSharedObjectFiles(soFolder, addSharedObjectFiles)
         }
 
-        int numberOfSharedObjectFiles = files.size()
-        if (numberOfSharedObjectFiles > 0) {
+        if (files.size() > 0) {
             String apiKey = configValues[SymbolUploadPlugin.API_KEY]
             String token = configValues[SymbolUploadPlugin.TOKEN]
             int timeout = configValues[SymbolUploadPlugin.TIMEOUT].toInteger()
 
-            UploadMapping.uploadFiles(apiKey, null, files.toArray(new String[numberOfSharedObjectFiles]), token, timeout,
+            UploadMapping.uploadFiles(apiKey, null, files, token, timeout,
                     AndroidUploadType.ANDROID_NATIVE)
         }
     }

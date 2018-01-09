@@ -3,6 +3,8 @@ package com.flurry.proguard;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -30,8 +32,8 @@ public class UploadMappingTest {
         String path = getResourcePath("mapping.txt");
         String token = System.getenv(FLURRY_TOKEN);
 
-        UploadMapping.uploadFiles(apiKey, uuid, new String[]{path}, token, UploadMapping.ONE_MINUTE_IN_MS,
-                AndroidUploadType.ANDROID_JAVA);
+        UploadMapping.uploadFiles(apiKey, uuid, new ArrayList<>(Collections.singletonList(path)), token,
+                UploadMapping.ONE_MINUTE_IN_MS, AndroidUploadType.ANDROID_JAVA);
     }
 
     private String getResourcePath(String resource) {

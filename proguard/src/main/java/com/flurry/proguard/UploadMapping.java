@@ -37,6 +37,7 @@ import java.net.HttpURLConnection;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
@@ -84,10 +85,12 @@ public class UploadMapping {
 
         EXIT_PROCESS_ON_ERROR = true;
         if (res.getBoolean("ndk")) {
-            uploadFiles(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
+            uploadFiles(res.getString("api_key"), res.getString("uuid"),
+                    new ArrayList<>(Collections.singletonList(res.getString("path"))),
                     res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_NATIVE);
         } else {
-            uploadFiles(res.getString("api_key"), res.getString("uuid"), new String[]{res.getString("path")},
+            uploadFiles(res.getString("api_key"), res.getString("uuid"),
+                    new ArrayList<>(Collections.singletonList(res.getString("path"))),
                     res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_JAVA);
         }
     }
@@ -122,16 +125,17 @@ public class UploadMapping {
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
-    public static void uploadFiles(String apiKey, String uuid, String[] paths, String token, int timeout,
+    public static void uploadFiles(String apiKey, String uuid, ArrayList<String> paths, String token, int timeout,
                                    AndroidUploadType androidUploadType) {
-        File[] files = new File[paths.length];
-        for (int i = 0; i < paths.length; i++) {
-            files[i] = new File(paths[i]);
-            if (files[i].isDirectory()) {
+        ArrayList<File> files = new ArrayList<>();
+        paths.forEach(path -> {
+            File file = new File(path);
+            if (file.isDirectory()) {
                 failWithError("{} is a directory. Please provide the path to " + androidUploadType.getDisplayName()
-                        +  " mapping file " + paths[i]);
+                        + " mapping file " + path);
             }
-        }
+            files.add(file);
+        });
 
         if (apiKey == null) {
             failWithError("No API key provided");
@@ -164,7 +168,7 @@ public class UploadMapping {
      * @param files array of mapping.txt files
      * @return the tar-gzipped archive
      */
-    private static File createArchive(File[] files, String uuid) {
+    private static File createArchive(ArrayList<File> files, String uuid) {
         try {
             File tarZippedFile = File.createTempFile("tar-zipped-file", ".tgz");
             TarArchiveOutputStream taos = new TarArchiveOutputStream(
