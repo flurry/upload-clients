@@ -12,6 +12,7 @@ class SymbolUploadConfiguration {
     boolean useEnvVar = true
     String configPath
     int uploadTimeout = 300
+    boolean ndk
 
     @Override
     String toString() {

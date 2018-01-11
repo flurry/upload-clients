@@ -37,11 +37,13 @@ import java.net.HttpURLConnection;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.zip.GZIPOutputStream;
 
-public class UploadProGuardMapping {
+public class UploadMapping {
     private static final String METADATA_BASE = "https://crash-metadata.flurry.com/pulse/v1";
     private static final String UPLOAD_BASE = "https://upload.flurry.com/upload/v1";
     public static final int FIVE_SECONDS_IN_MS = 5 * 1000;
@@ -49,7 +51,7 @@ public class UploadProGuardMapping {
     public static final int TEN_MINUTES_IN_MS = 10 * ONE_MINUTE_IN_MS;
 
     private static boolean EXIT_PROCESS_ON_ERROR = false;
-    private static Logger LOGGER = LoggerFactory.getLogger(UploadProGuardMapping.class.getName());
+    private static Logger LOGGER = LoggerFactory.getLogger(UploadMapping.class.getName());
     private static final RequestConfig REQUEST_CONFIG = RequestConfig.custom()
                 .setConnectTimeout(FIVE_SECONDS_IN_MS) // 5 Seconds
                 .setSocketTimeout(FIVE_SECONDS_IN_MS)
@@ -58,18 +60,20 @@ public class UploadProGuardMapping {
                 .setDefaultRequestConfig(REQUEST_CONFIG).build();
 
     public static void main(String[] args) {
-        ArgumentParser parser = ArgumentParsers.newArgumentParser("com.flurry.proguard.UploadProguardMapping", true)
-                .description("Uploads Proguard Mapping Files for Android");
+        ArgumentParser parser = ArgumentParsers.newArgumentParser("com.flurry.proguard.UploadMapping", true)
+                .description("Uploads Proguard/Native Mapping Files for Android");
         parser.addArgument("-k", "--api-key").required(true)
                     .help("API Key for your project");
         parser.addArgument("-u", "--uuid").required(true)
                     .help("The build UUID");
         parser.addArgument("-p", "--path").required(true)
-                    .help("Path to ProGuard mapping file for the build");
+                .help("Path to ProGuard/Native mapping file for the build");
         parser.addArgument("-t", "--token").required(true)
                     .help("A Flurry auth token to use for the upload");
         parser.addArgument("-to", "--timeout").type(Integer.class).setDefault(TEN_MINUTES_IN_MS)
                     .help("How long to wait (in ms) for the upload to be processed");
+        parser.addArgument("-n", "--ndk").type(Boolean.class).setDefault(false)
+                    .help("Is it a Native mapping file");
 
         Namespace res = null;
         try {
@@ -80,9 +84,16 @@ public class UploadProGuardMapping {
         }
 
         EXIT_PROCESS_ON_ERROR = true;
-        uploadFile(res.getString("api_key"), res.getString("uuid"), res.getString("path"), res.getString("token"), res.getInt("timeout"));
+        if (res.getBoolean("ndk")) {
+            uploadFiles(res.getString("api_key"), res.getString("uuid"),
+                    new ArrayList<>(Collections.singletonList(res.getString("path"))),
+                    res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_NATIVE);
+        } else {
+            uploadFiles(res.getString("api_key"), res.getString("uuid"),
+                    new ArrayList<>(Collections.singletonList(res.getString("path"))),
+                    res.getString("token"), res.getInt("timeout"), AndroidUploadType.ANDROID_JAVA);
+        }
     }
-
     public static void setLogger(Logger logger) {
         LOGGER = logger;
     }
@@ -106,61 +117,70 @@ public class UploadProGuardMapping {
     }
 
     /**
-     * Tar a ProGuard file and send it to Flurry's crash service
+     * Tar a ProGuard/Native mapping file and send it to Flurry's crash service
      *
      * @param apiKey the API key for the project being built
      * @param uuid the uuid for this build
-     * @param pathToFile the path to the ProGuard mapping.txt file
+     * @param paths the paths to the ProGuard/Native mapping.txt files
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
-    public static void uploadFile(String apiKey, String uuid, String pathToFile, String token, int timeout) {
-        File file = new File(pathToFile);
-        if (file.isDirectory()) {
-            failWithError("{} is a directory. Please provide the path to mapping.txt", pathToFile);
-        }
+    public static void uploadFiles(String apiKey, String uuid, List<String> paths, String token, int timeout,
+                                   AndroidUploadType androidUploadType) {
+        ArrayList<File> files = new ArrayList<>();
+        paths.forEach(path -> {
+            File file = new File(path);
+            if (file.isDirectory()) {
+                failWithError("{} is a directory. Please provide the path to " + androidUploadType.getDisplayName()
+                        + " mapping file " + path);
+            }
+            files.add(file);
+        });
+
         if (apiKey == null) {
             failWithError("No API key provided");
         }
-        if (uuid == null) {
+        if (androidUploadType == AndroidUploadType.ANDROID_JAVA && uuid == null) {
             failWithError("No UUID provided");
         }
         if (token == null) {
             failWithError("No token provided");
         }
 
-        File zippedFile = createArchive(file, uuid);
+        File zippedFile = createArchive(files, uuid);
         String projectId = lookUpProjectId(apiKey, token);
         LOGGER.info("Found project {} for api key {}", projectId, apiKey);
 
-        String payload = getUploadJson(zippedFile, projectId);
+        String payload = getUploadJson(zippedFile, projectId, androidUploadType.getUploadType());
         String uploadId = createUpload(projectId, payload, token);
         LOGGER.info("Created upload with ID: {}", uploadId);
 
         sendToUploadService(zippedFile, projectId, uploadId, token);
-        LOGGER.info("ProGuard uploaded to Flurry");
+        LOGGER.info(androidUploadType.getDisplayName() + " mapping uploaded to Flurry");
 
         waitForUploadToBeProcessed(projectId, uploadId, token, timeout);
         LOGGER.info("Upload completed successfully!");
     }
 
     /**
-     * Create a gzipped tar archive containing the ProGuard mapping file
+     * Create a gzipped tar archive containing the ProGuard/Native mapping files
      *
-     * @param file the mapping.txt file
-     * @param uuid the build uuid
+     * @param files array of mapping.txt files
      * @return the tar-gzipped archive
      */
-    private static File createArchive(File file, String uuid) {
+    private static File createArchive(List<File> files, String uuid) {
         try {
             File tarZippedFile = File.createTempFile("tar-zipped-file", ".tgz");
             TarArchiveOutputStream taos = new TarArchiveOutputStream(
                         new GZIPOutputStream(
                                     new BufferedOutputStream(
                                                 new FileOutputStream(tarZippedFile))));
-            taos.putArchiveEntry(new TarArchiveEntry(file, uuid + ".txt"));
-            IOUtils.copy(new FileInputStream(file), taos);
-            taos.closeArchiveEntry();
+            for (File file : files) {
+                taos.putArchiveEntry(new TarArchiveEntry(file,
+                        (uuid != null && !uuid.isEmpty() ? uuid : UUID.randomUUID()) + ".txt"));
+                IOUtils.copy(new FileInputStream(file), taos);
+                taos.closeArchiveEntry();
+            }
             taos.finish();
             taos.close();
             return tarZippedFile;
@@ -198,8 +218,9 @@ public class UploadProGuardMapping {
      * @param projectId the project's ID
      * @return a JSON string to be sent to the metadata service
      */
-    private static String getUploadJson(File zippedFile, String projectId) {
+    private static String getUploadJson(File zippedFile, String projectId, String uploadType) {
         return getUploadTemplate()
+                    .replace("UPLOAD_TYPE", uploadType)
                     .replace("UPLOAD_SIZE", Long.toString(zippedFile.length()))
                     .replace("PROJECT_ID", projectId);
     }
@@ -228,7 +249,7 @@ public class UploadProGuardMapping {
         return "{\"data\": {" +
                     "\"type\": \"upload\"," +
                     "\"attributes\":" +
-                        "{\"uploadType\": \"ANDROID\", \"contentLength\": UPLOAD_SIZE}," +
+                        "{\"uploadType\": \"UPLOAD_TYPE\", \"contentLength\": UPLOAD_SIZE}," +
                     "\"relationships\":" +
                         "{\"project\":{\"data\":{\"id\":PROJECT_ID,\"type\":\"project\"}}}" +
                     "}" +

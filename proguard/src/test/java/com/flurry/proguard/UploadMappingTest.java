@@ -3,21 +3,22 @@ package com.flurry.proguard;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
 
 /**
  * Test uploads
  */
-public class UploadProGuardMappingTest {
+public class UploadMappingTest {
     private static final String FLURRY_TOKEN = "FLURRY_TOKEN";
     private static final String API_KEY = "API_KEY";
 
     @Test
     public void testParseConfigFile() {
         String path = getResourcePath("flurry.config");
-        Properties vals = UploadProGuardMapping.parseConfigFile(path);
+        Properties vals = UploadMapping.parseConfigFile(path);
 
         Assert.assertEquals(vals.get("api-key"), "FOO_API_KEY");
         Assert.assertEquals(vals.get("token"), "FOO_TOKEN");
@@ -31,10 +32,11 @@ public class UploadProGuardMappingTest {
         String path = getResourcePath("mapping.txt");
         String token = System.getenv(FLURRY_TOKEN);
 
-        UploadProGuardMapping.uploadFile(apiKey, uuid, path, token, UploadProGuardMapping.ONE_MINUTE_IN_MS);
+        UploadMapping.uploadFiles(apiKey, uuid, Collections.singletonList(path), token,
+                UploadMapping.ONE_MINUTE_IN_MS, AndroidUploadType.ANDROID_JAVA);
     }
 
     private String getResourcePath(String resource) {
-        return UploadProGuardMappingTest.class.getClassLoader().getResource(resource).getPath();
+        return UploadMappingTest.class.getClassLoader().getResource(resource).getPath();
     }
 }

@@ -86,7 +86,8 @@ generated `mapping.txt` file manually before any stack traces received from that
   - `configPath "<the path to the flurry.config file described above>"`
   - `apiKey "<the api key used to initialize the SDK>"`
   - `token "<An environment variable to read the token from>"`
-  - `useEnvironmentVariable (true|false)` the default for `useEnvironmentVariable` is `true` you can set it to `false`
+  - `useEnvironmentVariable (true|false)` the default for `useEnvironmentVariable` is `true`. You can set it to `false`
     if you want to inline your [Programmatic Token][programmatic-access], though this is not recommended.
+  - `ndk (true|false)` the default value is `false`. You can set it to `true` if you want to upload symbols for your native code as well.
 
 [programmatic-access]: https://developer.yahoo.com/flurry/docs/api/code/apptoken/
