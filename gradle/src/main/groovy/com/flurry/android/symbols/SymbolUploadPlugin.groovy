@@ -48,7 +48,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     variant.assemble.doFirst {
                         UploadMapping.uploadFiles(apiKey, uuid,
-                                (Collections.singletonList(variant.mappingFile.absolutePath) as ArrayList),
+                                (Collections.singletonList(variant.mappingFile.absolutePath) as List),
                                 token, timeout, AndroidUploadType.ANDROID_JAVA)
                     }
                 }
