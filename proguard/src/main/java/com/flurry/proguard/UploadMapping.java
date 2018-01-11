@@ -125,7 +125,7 @@ public class UploadMapping {
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
-    public static void uploadFiles(String apiKey, String uuid, ArrayList<String> paths, String token, int timeout,
+    public static void uploadFiles(String apiKey, String uuid, List<String> paths, String token, int timeout,
                                    AndroidUploadType androidUploadType) {
         ArrayList<File> files = new ArrayList<>();
         paths.forEach(path -> {
@@ -168,7 +168,7 @@ public class UploadMapping {
      * @param files array of mapping.txt files
      * @return the tar-gzipped archive
      */
-    private static File createArchive(ArrayList<File> files, String uuid) {
+    private static File createArchive(List<File> files, String uuid) {
         try {
             File tarZippedFile = File.createTempFile("tar-zipped-file", ".tgz");
             TarArchiveOutputStream taos = new TarArchiveOutputStream(
