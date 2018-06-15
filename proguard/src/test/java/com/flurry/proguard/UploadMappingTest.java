@@ -3,7 +3,7 @@ package com.flurry.proguard;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.ArrayList;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.UUID;
@@ -26,7 +26,7 @@ public class UploadMappingTest {
     }
 
     @Test
-    public void testUploadFile() {
+    public void testUploadFile() throws IOException {
         String apiKey = System.getenv(API_KEY);
         String uuid = UUID.randomUUID().toString();
         String path = getResourcePath("mapping.txt");
