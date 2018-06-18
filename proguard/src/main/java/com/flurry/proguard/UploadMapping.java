@@ -12,14 +12,14 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.utils.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.FileEntity;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
@@ -56,10 +56,9 @@ public class UploadMapping {
                 .setConnectTimeout(FIVE_SECONDS_IN_MS) // 5 Seconds
                 .setSocketTimeout(FIVE_SECONDS_IN_MS)
                 .setConnectionRequestTimeout(ONE_MINUTE_IN_MS).build();
-    private static final HttpClient HTTP_CLIENT = HttpClientBuilder.create()
-                .setDefaultRequestConfig(REQUEST_CONFIG).build();
+    private static CloseableHttpClient httpClient;
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
         ArgumentParser parser = ArgumentParsers.newArgumentParser("com.flurry.proguard.UploadMapping", true)
                 .description("Uploads Proguard/Native Mapping Files for Android");
         parser.addArgument("-k", "--api-key").required(true)
@@ -126,7 +125,7 @@ public class UploadMapping {
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
      */
     public static void uploadFiles(String apiKey, String uuid, List<String> paths, String token, int timeout,
-                                   AndroidUploadType androidUploadType) {
+                                   AndroidUploadType androidUploadType) throws IOException {
         ArrayList<File> files = new ArrayList<>();
         paths.forEach(path -> {
             File file = new File(path);
@@ -147,19 +146,26 @@ public class UploadMapping {
             failWithError("No token provided");
         }
 
-        File zippedFile = createArchive(files, uuid);
-        String projectId = lookUpProjectId(apiKey, token);
-        LOGGER.info("Found project {} for api key {}", projectId, apiKey);
+        try {
+            httpClient = HttpClientBuilder.create().setDefaultRequestConfig(REQUEST_CONFIG).build();
 
-        String payload = getUploadJson(zippedFile, projectId, androidUploadType.getUploadType());
-        String uploadId = createUpload(projectId, payload, token);
-        LOGGER.info("Created upload with ID: {}", uploadId);
+            File zippedFile = createArchive(files, uuid);
+            String projectId = lookUpProjectId(apiKey, token);
+            LOGGER.info("Found project {} for api key {}", projectId, apiKey);
 
-        sendToUploadService(zippedFile, projectId, uploadId, token);
-        LOGGER.info(androidUploadType.getDisplayName() + " mapping uploaded to Flurry");
+            String payload = getUploadJson(zippedFile, projectId, androidUploadType.getUploadType());
+            String uploadId = createUpload(projectId, payload, token);
+            LOGGER.info("Created upload with ID: {}", uploadId);
 
-        waitForUploadToBeProcessed(projectId, uploadId, token, timeout);
-        LOGGER.info("Upload completed successfully!");
+            sendToUploadService(zippedFile, projectId, uploadId, token);
+            LOGGER.info(androidUploadType.getDisplayName() + " mapping uploaded to Flurry");
+
+            waitForUploadToBeProcessed(projectId, uploadId, token, timeout);
+            LOGGER.info("Upload completed successfully!");
+        } finally {
+            httpClient.close();
+            httpClient = null;
+        }
     }
 
     /**
@@ -197,18 +203,19 @@ public class UploadMapping {
      * @param token the Flurry auth token
      * @return the project's ID
      */
-    private static String lookUpProjectId(String apiKey, String token) {
+    private static String lookUpProjectId(String apiKey, String token) throws IOException {
         String queryUrl = String.format("%s/project?fields[project]=apiKey&filter[project.apiKey]=%s",
                     METADATA_BASE, apiKey);
-        HttpResponse response = executeHttpRequest(new HttpGet(queryUrl), getMetadataHeaders(token));
-        expectStatus(response, HttpURLConnection.HTTP_OK);
-
-        JSONObject jsonObject = getJsonFromEntity(response.getEntity());
-        JSONArray jsonArray = jsonObject.getJSONArray("data");
-        if (jsonArray.length() == 0) {
-            failWithError("No projects found for the API Key: " + apiKey);
+        JSONObject jsonObject;
+        try (CloseableHttpResponse response = executeHttpRequest(new HttpGet(queryUrl), getMetadataHeaders(token))) {
+            expectStatus(response, HttpURLConnection.HTTP_OK);
+            jsonObject = getJsonFromEntity(response.getEntity());
+            JSONArray jsonArray = jsonObject.getJSONArray("data");
+            if (jsonArray.length() == 0) {
+                failWithError("No projects found for the API Key: " + apiKey);
+            }
+            return jsonArray.getJSONObject(0).get("id").toString();
         }
-        return jsonArray.getJSONObject(0).get("id").toString();
     }
 
     /**
@@ -237,6 +244,8 @@ public class UploadMapping {
         } catch (IOException e) {
             failWithError("Cannot read HttpEntity {}", httpEntity, e);
             return null;
+        } finally {
+            EntityUtils.consumeQuietly(httpEntity);
         }
     }
 
@@ -264,16 +273,18 @@ public class UploadMapping {
      * @param token the Flurry auth token
      * @return the id of the created upload
      */
-    private static String createUpload(String projectId, String payload, String token) {
+    private static String createUpload(String projectId, String payload, String token) throws IOException {
         String postUrl = String.format("%s/project/%s/uploads", METADATA_BASE, projectId);
         List<Header> requestHeaders = getMetadataHeaders(token);
         HttpPost postRequest = new HttpPost(postUrl);
         postRequest.setEntity(new StringEntity(payload, Charset.forName("UTF-8")));
-        HttpResponse response = executeHttpRequest(postRequest, requestHeaders);
-        expectStatus(response, HttpURLConnection.HTTP_CREATED);
-
-        JSONObject jsonObject = getJsonFromEntity(response.getEntity());
-        return jsonObject.getJSONObject("data").get("id").toString();
+        try (CloseableHttpResponse response = executeHttpRequest(postRequest, requestHeaders)) {
+            expectStatus(response, HttpURLConnection.HTTP_CREATED);
+            JSONObject jsonObject = getJsonFromEntity(response.getEntity());
+            return jsonObject.getJSONObject("data").get("id").toString();
+        } finally {
+            postRequest.releaseConnection();
+        }
     }
 
     /**
@@ -284,13 +295,17 @@ public class UploadMapping {
      * @param uploadId the the upload's id
      * @param token the Flurry auth token
      */
-    private static void sendToUploadService(File file, String projectId, String uploadId, String token) {
+    private static void sendToUploadService(File file, String projectId, String uploadId, String token)
+            throws IOException {
         String uploadServiceUrl = String.format("%s/upload/%s/%s", UPLOAD_BASE, projectId, uploadId);
         List<Header> requestHeaders = getUploadServiceHeaders(file.length(), token);
         HttpPost postRequest = new HttpPost(uploadServiceUrl);
         postRequest.setEntity(new FileEntity(file));
-        HttpResponse response = executeHttpRequest(postRequest, requestHeaders);
-        expectStatus(response, HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_ACCEPTED);
+        try (CloseableHttpResponse response = executeHttpRequest(postRequest, requestHeaders)) {
+            expectStatus(response, HttpURLConnection.HTTP_CREATED, HttpURLConnection.HTTP_ACCEPTED);
+        } finally {
+            postRequest.releaseConnection();
+        }
     }
 
     /**
@@ -299,7 +314,7 @@ public class UploadMapping {
      * @param response the API response
      * @param validStatuses the list of acceptable statuses
      */
-    private static void expectStatus(HttpResponse response, Integer... validStatuses) {
+    private static void expectStatus(CloseableHttpResponse response, Integer... validStatuses) {
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
             failWithError("The provided token is expired");
@@ -323,7 +338,8 @@ public class UploadMapping {
      * @param token the Flurry auth token
      * @param maxWaitTime how long to wait for the upload to be processes (in ms)
      */
-    private static void waitForUploadToBeProcessed(String projectId, String uploadId, String token, int maxWaitTime) {
+    private static void waitForUploadToBeProcessed(String projectId, String uploadId, String token, int maxWaitTime)
+            throws IOException {
         int waitingTime = 0;
         while (true) {
             JSONObject upload = fetchUpload(projectId, uploadId, token);
@@ -365,22 +381,25 @@ public class UploadMapping {
      * @param token the Flurry auth token
      * @return the upload
      */
-    private static JSONObject fetchUpload(String projectId, String uploadId, String token) {
+    private static JSONObject fetchUpload(String projectId, String uploadId, String token) throws IOException {
         String queryUrl = String.format("%s/project/%s/uploads/%s?fields[upload]=uploadStatus,failureReason",
                     METADATA_BASE, projectId, uploadId);
         HttpGet getRequest = new HttpGet(queryUrl);
         List<Header> requestHeaders = getMetadataHeaders(token);
-        HttpResponse response = executeHttpRequest(getRequest, requestHeaders);
-        expectStatus(response, HttpURLConnection.HTTP_OK);
-        return getJsonFromEntity(response.getEntity());
+        try (CloseableHttpResponse response = executeHttpRequest(getRequest, requestHeaders)) {
+            expectStatus(response, HttpURLConnection.HTTP_OK);
+            return getJsonFromEntity(response.getEntity());
+        } finally {
+            getRequest.releaseConnection();
+        }
     }
 
-    private static HttpResponse executeHttpRequest(HttpUriRequest request, List<Header> requestHeaders) {
+    private static CloseableHttpResponse executeHttpRequest(HttpUriRequest request, List<Header> requestHeaders) {
         for (Header header : requestHeaders) {
             request.setHeader(header.getName(), header.getValue());
         }
         try {
-            return HTTP_CLIENT.execute(request);
+            return httpClient.execute(request);
         } catch (IOException e) {
             failWithError("IO Exception during request: {}", request, e);
             return null;
@@ -437,6 +456,12 @@ public class UploadMapping {
                 message = String.format(format.replace("{}", "%s"), args);
             }
             throw new RuntimeException(message, cause);
+        }
+    }
+
+    private static void validateResponse(CloseableHttpResponse httpResponse, String message) {
+        if (httpResponse == null) {
+            throw new NullPointerException(message);
         }
     }
 }
