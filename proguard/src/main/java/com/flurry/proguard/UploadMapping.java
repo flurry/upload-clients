@@ -146,21 +146,26 @@ public class UploadMapping {
             failWithError("No token provided");
         }
 
-        File zippedFile = createArchive(files, uuid);
-        String projectId = lookUpProjectId(apiKey, token);
-        LOGGER.info("Found project {} for api key {}", projectId, apiKey);
+        try {
+            httpClient = HttpClientBuilder.create().setDefaultRequestConfig(REQUEST_CONFIG).build();
 
-        String payload = getUploadJson(zippedFile, projectId, androidUploadType.getUploadType());
-        String uploadId = createUpload(projectId, payload, token);
-        LOGGER.info("Created upload with ID: {}", uploadId);
+            File zippedFile = createArchive(files, uuid);
+            String projectId = lookUpProjectId(apiKey, token);
+            LOGGER.info("Found project {} for api key {}", projectId, apiKey);
 
-        sendToUploadService(zippedFile, projectId, uploadId, token);
-        LOGGER.info(androidUploadType.getDisplayName() + " mapping uploaded to Flurry");
+            String payload = getUploadJson(zippedFile, projectId, androidUploadType.getUploadType());
+            String uploadId = createUpload(projectId, payload, token);
+            LOGGER.info("Created upload with ID: {}", uploadId);
 
-        waitForUploadToBeProcessed(projectId, uploadId, token, timeout);
-        LOGGER.info("Upload completed successfully!");
+            sendToUploadService(zippedFile, projectId, uploadId, token);
+            LOGGER.info(androidUploadType.getDisplayName() + " mapping uploaded to Flurry");
 
-        httpClient.close();
+            waitForUploadToBeProcessed(projectId, uploadId, token, timeout);
+            LOGGER.info("Upload completed successfully!");
+        } finally {
+            httpClient.close();
+            httpClient = null;
+        }
     }
 
     /**
@@ -205,13 +210,12 @@ public class UploadMapping {
         try (CloseableHttpResponse response = executeHttpRequest(new HttpGet(queryUrl), getMetadataHeaders(token))) {
             expectStatus(response, HttpURLConnection.HTTP_OK);
             jsonObject = getJsonFromEntity(response.getEntity());
+            JSONArray jsonArray = jsonObject.getJSONArray("data");
+            if (jsonArray.length() == 0) {
+                failWithError("No projects found for the API Key: " + apiKey);
+            }
+            return jsonArray.getJSONObject(0).get("id").toString();
         }
-
-        JSONArray jsonArray = jsonObject.getJSONArray("data");
-        if (jsonArray.length() == 0) {
-            failWithError("No projects found for the API Key: " + apiKey);
-        }
-        return jsonArray.getJSONObject(0).get("id").toString();
     }
 
     /**
@@ -395,7 +399,6 @@ public class UploadMapping {
             request.setHeader(header.getName(), header.getValue());
         }
         try {
-            httpClient = HttpClientBuilder.create().setDefaultRequestConfig(REQUEST_CONFIG).build();
             return httpClient.execute(request);
         } catch (IOException e) {
             failWithError("IO Exception during request: {}", request, e);
