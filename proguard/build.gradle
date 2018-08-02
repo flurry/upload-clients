@@ -19,8 +19,10 @@ description = "Proguard/Native mapping Upload"
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-String bintrayUsername = project.hasProperty("bintrayCoreUser") ? project.property("bintrayCoreUser") : ""  // Keep out of source control
-String bintrayPassword = project.hasProperty("bintrayCorePass") ? project.property("bintrayCorePass") : ""   // Keep out of source control
+String bintrayUser = project.hasProperty("bintray.api.user") ? project.property("bintray.api.user") : ""  // Keep out of source control
+String bintrayApiKey = project.hasProperty("bintray.api.key") ? project.property("bintray.api.key") : ""   // Keep out of source control
+
+logger.lifecycle("Bintray user $bintrayUser")
 
 repositories {
     mavenLocal()
@@ -49,8 +51,8 @@ publishing {
 }
 
 bintray {
-    user = "$bintrayUsername"
-    key = "$bintrayPassword"
+    user = "$bintrayUser"
+    key = "$bintrayApiKey"
     publications = ['lib', 'cli']
     pkg {
         userOrg = 'yahoo'

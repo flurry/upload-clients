@@ -23,8 +23,10 @@ version '1.1.0'
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-String bintrayUsername = project.hasProperty("bintrayPluginUser") ? project.property("bintrayPluginUser") : ""  // Keep out of source control
-String bintrayPassword = project.hasProperty("bintrayPluginPass") ? project.property("bintrayPluginPass") : ""   // Keep out of source control
+String bintrayUser = project.hasProperty("bintray.api.user") ? project.property("bintray.api.user") : ""  // Keep out of source control
+String bintrayApiKey = project.hasProperty("bintray.api.key") ? project.property("bintray.api.key") : ""   // Keep out of source control
+
+logger.lifecycle("Bintray user $bintrayUser")
 
 repositories {
     jcenter()
@@ -59,8 +61,8 @@ publishing {
 }
 
 bintray {
-    user = "$bintrayUsername"
-    key = "$bintrayPassword"
+    user = "$bintrayUser"
+    key = "$bintrayApiKey"
     publications = ['plugin']
     pkg {
         userOrg = 'yahoo'

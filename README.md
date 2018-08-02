@@ -75,7 +75,7 @@ generated `mapping.txt` file manually before any stack traces received from that
   }
 
   apply plugin: 'com.flurry.android.symbols'
-  
+
   ...
 
   flurryCrash {
