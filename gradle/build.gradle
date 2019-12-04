@@ -14,7 +14,7 @@ plugins {
     id 'java'
     id 'maven-publish'
     id 'com.jfrog.bintray' version '1.7'
-    id 'com.gradle.plugin-publish' version '0.9.6'
+    id 'com.gradle.plugin-publish' version '0.10.1'
 }
 
 group 'com.flurry'
