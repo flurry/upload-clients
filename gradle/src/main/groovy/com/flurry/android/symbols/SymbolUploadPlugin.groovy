@@ -46,15 +46,35 @@ class SymbolUploadPlugin implements Plugin<Project> {
                     project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
-                    variant.assemble.doFirst {
+                    Closure uploadMappingFile = {
                         UploadMapping.uploadFiles(apiKey, uuid,
                                 (Collections.singletonList(variant.mappingFile.absolutePath) as List),
                                 token, timeout, AndroidUploadType.ANDROID_JAVA)
                     }
+                    try {
+                        variant.getAssembleProvider().configure() {
+                            it.doFirst { uploadMappingFile() }
+                        }
+                    } catch (Throwable ignored) {
+                        variant.assemble.doFirst { uploadMappingFile() }
+                    }
                 }
-                variant.assemble.doLast {
+
+                Closure uploadNDKSymbols = {
                     if (ndk) {
                         NdkSymbolUpload.upload(variant, configValues, project.logger)
+                    }
+                }
+
+                try {
+                    variant.getAssembleProvider().configure() {
+                        it.doLast {
+                            uploadNDKSymbols()
+                        }
+                    }
+                } catch (Throwable ignored) {
+                    variant.assemble.doLast {
+                        uploadNDKSymbols()
                     }
                 }
             }

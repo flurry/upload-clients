@@ -48,15 +48,20 @@ class NdkSymbolUpload {
             logger.lifecycle("Found .so file: " + sharedObjectFile.parentFile.name + "/" + sharedObjectFile.name)
             files.add(sharedObjectFile.absolutePath)
         }
-        
-        Collection<ExternalNativeBuildTask> tasks = variant.externalNativeBuildTasks
-        for (ExternalNativeBuildTask task : tasks) {
+
+        Closure searchForSharedObjectFiles = { ExternalNativeBuildTask task ->
             File objFolder = task.objFolder
             File soFolder = task.soFolder
             findSharedObjectFiles(objFolder, addSharedObjectFiles)
             findSharedObjectFiles(soFolder, addSharedObjectFiles)
         }
 
+        try {
+            variant.getExternalNativeBuildProviders().each { taskProvider -> searchForSharedObjectFiles(taskProvider.get()) }
+        } catch(Throwable ignored) {
+            variant.externalNativeBuildTasks.each { task -> searchForSharedObjectFiles(task) }
+        }
+        
         if (files.size() > 0) {
             String apiKey = configValues[SymbolUploadPlugin.API_KEY]
             String token = configValues[SymbolUploadPlugin.TOKEN]
