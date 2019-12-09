@@ -58,21 +58,15 @@ If you choose not to use FastLane, this can be done manually through the followi
 generated `mapping.txt` file manually before any stack traces received from that version of your app can be deobfuscated.
 
 1. Install Flurry SDK 6.7.0 or greater.
-1. Apply the Flurry android crash plugin to your app's build. 
+1. Apply the Flurry android crash plugin to your app's build by following the [installation steps][plugin-install].
+3. Configure the crash plugin by adding the following configuration to the build.gradle file.
    ```
-   // for alternate applications of the plugin 
-   // see https://plugins.gradle.org/plugin/com.flurry.android.symbols
-   plugins {
-     id "com.flurry.android.symbols" version "1.1.0"
-   }
-
-   ...
-
    flurryCrash {
-     <configuration>
+     apiKey ""
+     token "" 
    }
    ```
-3. Configure the crash plugin. You may provide either `configPath` or `apiKey` *and* `token`
+4. You may provide either `configPath` or `apiKey` *and* `token`
   - `configPath "<the path to the flurry.config file described above>"`
   - `apiKey "<the api key used to initialize the SDK>"`
   - `token "<An environment variable to read the token from>"`
@@ -81,3 +75,4 @@ generated `mapping.txt` file manually before any stack traces received from that
   - `ndk (true|false)` the default value is `false`. You can set it to `true` if you want to upload symbols for your native code as well.
 
 [programmatic-access]: https://developer.yahoo.com/flurry/docs/api/code/apptoken/
+[plugin-install]: https://plugins.gradle.org/plugin/com.flurry.android.symbols
