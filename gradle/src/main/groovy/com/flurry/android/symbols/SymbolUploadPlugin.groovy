@@ -56,6 +56,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
                             it.doFirst { uploadMappingFile() }
                         }
                     } catch (Throwable ignored) {
+                        // The catch block is a fallback in case if the gradle version does not support the Provider API
                         variant.assemble.doFirst { uploadMappingFile() }
                     }
                 }
@@ -73,6 +74,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
                         }
                     }
                 } catch (Throwable ignored) {
+                    // The catch block is a fallback in case if the gradle version does not support the Provider API
                     variant.assemble.doLast {
                         uploadNDKSymbols()
                     }
