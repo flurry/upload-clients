@@ -57,7 +57,11 @@ class NdkSymbolUpload {
         }
 
         try {
-            variant.getExternalNativeBuildProviders().each { taskProvider -> searchForSharedObjectFiles(taskProvider.get()) }
+            variant.getExternalNativeBuildProviders().each {
+                it.configure() {
+                    searchForSharedObjectFiles(it)
+                }
+            }
         } catch(Throwable ignored) {
             // The catch block is a fallback in case if the gradle version does not support the Provider API
             variant.externalNativeBuildTasks.each { task -> searchForSharedObjectFiles(task) }
