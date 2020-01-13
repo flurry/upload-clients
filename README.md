@@ -11,21 +11,21 @@ that were previously used to access the apis from [api.flurry.com](api.flurry.co
 1. Ensure that your project is configured to build dSYM bundles
    ![dSYM setting](instructions/build-dsym-setting.png)
 1. Copy the python script at `xcode/upload-symbols.py` to the root of your project directory
-   - Note: script requires Python 3, available at [python.org](https://www.python.org/downloads/mac-osx/) or through [Homebrew](https://brew.sh/).
 
+   Alternately, you can copy a Python 3.x version of the script from `xcode/upload-symbols-py3.py`. Note that this script requires Python 3, available at [python.org](https://www.python.org/downloads/mac-osx/) or through [Homebrew](https://brew.sh/).
 1. In XCode add a `Run Script` build phase
    ![XCode build configuration](instructions/xcode-phases.png)
 1. Add a configuration file in the root of your project `flurry.config`. Contents:
-  ```
-  [flurry]
-  token=TOKEN
-  api-key=API_KEY
-  ```
+   ```
+   [flurry]
+   token=TOKEN
+   api-key=API_KEY
+   ```
 1. Configure the build phase. You can find your API key in the Flurry Developer portal or in you `AppDelegate`
-  ```
-  ./upload-symbols.py -c flurry.config
-  ```
-  ![Job configuration](instructions/job-config.png)
+   ```
+   ./upload-symbols.py -c flurry.config
+   ```
+   ![Job configuration](instructions/job-config.png)
 
 Now whenever you build your application you will upload symbols to Flurry's symbolication service. If you wish
 you can configure your symbols to be sent only when you build an archive of your project; this is achieved by checking
