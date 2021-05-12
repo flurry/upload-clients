@@ -18,7 +18,7 @@ plugins {
 }
 
 group 'com.flurry'
-version '1.2.0'
+version '3.0.0'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
@@ -29,6 +29,7 @@ String bintrayApiKey = project.hasProperty("bintray.api.key") ? project.property
 logger.lifecycle("Bintray user $bintrayUser")
 
 repositories {
+    google()
     jcenter()
     maven {
         url  "http://yahoo.bintray.com/maven"
@@ -36,7 +37,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'com.android.tools.build:gradle:[2.0.0,3.0)'
+    compileOnly 'com.android.tools.build:gradle:[3.6.4,4.0)'
 
     compile gradleApi()
     compile localGroovy()
