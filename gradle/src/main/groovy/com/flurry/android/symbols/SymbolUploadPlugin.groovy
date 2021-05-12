@@ -41,14 +41,18 @@ class SymbolUploadPlugin implements Plugin<Project> {
             }
 
             project.android.applicationVariants.all { BaseVariant variant ->
-                if (variant.mappingFile) {
+                variant.getMappingFileProvider().map { mappingFileCollection ->
+                    if (mappingFileCollection.empty) {
+                        return
+                    }
+                    File mappingFile = mappingFileCollection.getSingleFile()
                     String uuid = UUID.randomUUID().toString()
                     project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     Closure uploadMappingFile = {
                         UploadMapping.uploadFiles(apiKey, uuid,
-                                (Collections.singletonList(variant.mappingFile.absolutePath) as List),
+                                (Collections.singletonList(mappingFile.absolutePath) as List),
                                 token, timeout, AndroidUploadType.ANDROID_JAVA)
                     }
                     try {
