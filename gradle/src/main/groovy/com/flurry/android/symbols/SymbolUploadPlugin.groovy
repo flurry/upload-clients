@@ -4,6 +4,7 @@
 package com.flurry.android.symbols
 
 import com.android.build.gradle.api.BaseVariant
+import org.gradle.api.file.FileCollection
 import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
 import org.gradle.api.Plugin
@@ -41,14 +42,14 @@ class SymbolUploadPlugin implements Plugin<Project> {
             }
 
             project.android.applicationVariants.all { BaseVariant variant ->
-                if (variant.mappingFile) {
+                Closure processVariantMapping = { variantMappingFile ->
                     String uuid = UUID.randomUUID().toString()
                     project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
 
                     variant.resValue "string", FLURRY_UUID_KEY, uuid
                     Closure uploadMappingFile = {
                         UploadMapping.uploadFiles(apiKey, uuid,
-                                (Collections.singletonList(variant.mappingFile.absolutePath) as List),
+                                (Collections.singletonList(variantMappingFile.absolutePath) as List),
                                 token, timeout, AndroidUploadType.ANDROID_JAVA)
                     }
                     try {
@@ -60,6 +61,17 @@ class SymbolUploadPlugin implements Plugin<Project> {
                         variant.assemble.doFirst { uploadMappingFile() }
                     }
                 }
+
+                try {
+                    variant.getMappingFileProvider().configure() {
+                        it.doFirst { processVariantMapping(it) }
+                    }
+                } catch (Throwable ignored) {
+                    if (variant.mappingFile) {
+                        variant.mappingFile.doFirst { processVariantMapping(it) }
+                    }
+                }
+
 
                 Closure uploadNDKSymbols = {
                     if (ndk) {
