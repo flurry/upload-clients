@@ -3,18 +3,19 @@
  */
 package com.flurry.android.symbols
 
+import com.android.build.gradle.api.ApplicationVariant
 import com.android.build.gradle.api.BaseVariant
 import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.logging.Logger
 
 /**
  * A Gradle plugin that finds the generated ProGuard file and sends it to Flurry's crash service
  */
 class SymbolUploadPlugin implements Plugin<Project> {
     public static final String CONFIGURATION_KEY = "flurryCrash"
-    public static final String FLURRY_UUID_KEY = "com.flurry.crash.map_id"
 
     public static final String API_KEY = "api-key"
     public static final String TOKEN = "token"
@@ -41,28 +42,26 @@ class SymbolUploadPlugin implements Plugin<Project> {
             }
 
             project.android.applicationVariants.all { BaseVariant variant ->
-                variant.getMappingFileProvider().map { mappingFileCollection ->
-                    if (mappingFileCollection.empty) {
-                        return
-                    }
-                    File mappingFile = mappingFileCollection.getSingleFile()
-                    String uuid = UUID.randomUUID().toString()
-                    project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
+                String uuid = UUID.randomUUID().toString()
+                project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
 
-                    variant.resValue "string", FLURRY_UUID_KEY, uuid
-                    Closure uploadMappingFile = {
+                Closure uploadMappingFile = {
+                    File mappingFile = getMappingFile(variant, project.logger)
+                    if (mappingFile != null) {
                         UploadMapping.uploadFiles(apiKey, uuid,
                                 (Collections.singletonList(mappingFile.absolutePath) as List),
                                 token, timeout, AndroidUploadType.ANDROID_JAVA)
+                    } else {
+                        project.logger.lifecycle("Mapping file not found")
                     }
-                    try {
-                        variant.getAssembleProvider().configure() {
-                            it.doFirst { uploadMappingFile() }
-                        }
-                    } catch (Throwable ignored) {
-                        // The catch block is a fallback in case if the gradle version does not support the Provider API
-                        variant.assemble.doFirst { uploadMappingFile() }
+                }
+                try {
+                    variant.getAssembleProvider().configure() {
+                        it.doFirst { uploadMappingFile() }
                     }
+                } catch (Throwable ignored) {
+                    // The catch block is a fallback in case if the gradle version does not support the Provider API
+                    variant.assemble.doFirst { uploadMappingFile() }
                 }
 
                 Closure uploadNDKSymbols = {
@@ -118,5 +117,22 @@ class SymbolUploadPlugin implements Plugin<Project> {
         }
 
         return configValues
+    }
+
+    /**
+     * Returns the mapping file
+     * @param variant the ApplicationVariant
+     * @return the file or null if not found
+     */
+    static File getMappingFile(ApplicationVariant variant, Logger logger) {
+        try {
+            if (variant.getMappingFileProvider() != null && !variant.getMappingFileProvider().get().isEmpty()) {
+                return variant.getMappingFileProvider().get().singleFile
+            }
+        } catch (Exception ignored) {
+            logger.lifecycle("Error while accessing mapping file")
+            return variant.mappingFile
+        }
+        return null
     }
 }
