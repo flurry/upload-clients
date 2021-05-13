@@ -133,5 +133,6 @@ class SymbolUploadPlugin implements Plugin<Project> {
             logger.lifecycle("Error while accessing mapping file")
             return variant.mappingFile
         }
+        return null
     }
 }
