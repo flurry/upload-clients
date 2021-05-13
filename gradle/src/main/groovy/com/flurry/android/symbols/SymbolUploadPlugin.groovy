@@ -47,10 +47,12 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
                 Closure uploadMappingFile = {
                     File mappingFile = getMappingFile(variant, project.logger)
-                    if (mappingFile) {
+                    if (mappingFile != null) {
                         UploadMapping.uploadFiles(apiKey, uuid,
                                 (Collections.singletonList(mappingFile.absolutePath) as List),
                                 token, timeout, AndroidUploadType.ANDROID_JAVA)
+                    } else {
+                        project.logger.lifecycle("Mapping file not found")
                     }
                 }
                 try {
@@ -124,7 +126,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
      */
     static File getMappingFile(ApplicationVariant variant, Logger logger) {
         try {
-            if (!variant.getMappingFileProvider().get().isEmpty()) {
+            if (variant.getMappingFileProvider() != null && !variant.getMappingFileProvider().get().isEmpty()) {
                 return variant.getMappingFileProvider().get().singleFile
             }
         } catch (Exception ignored) {
