@@ -9,7 +9,9 @@ import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.UnknownTaskException
 import org.gradle.api.logging.Logger
+
 
 /**
  * A Gradle plugin that finds the generated ProGuard file and sends it to Flurry's crash service
@@ -44,24 +46,37 @@ class SymbolUploadPlugin implements Plugin<Project> {
             project.android.applicationVariants.all { BaseVariant variant ->
                 String uuid = UUID.randomUUID().toString()
                 project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
+                
+                if (variant.buildType.isMinifyEnabled()) {
+                    String taskSuffix = variant.name.capitalize()
+                    String taskName = String.format('uploadProguardMappingFiles%s', taskSuffix)
+                    def uploadMappingTask = project.tasks.register(taskName) {
+                        doLast {
+                            File mappingFile = getMappingFile(variant, project.logger)
+                            if (mappingFile != null) {
+                                UploadMapping.uploadFiles(apiKey, uuid,
+                                        (Collections.singletonList(mappingFile.absolutePath) as List),
+                                        token, timeout, AndroidUploadType.ANDROID_JAVA)
+                            } else {
+                                project.logger.lifecycle("Mapping file not found")
+                            }
+                        }
+                    }
 
-                Closure uploadMappingFile = {
-                    File mappingFile = getMappingFile(variant, project.logger)
-                    if (mappingFile != null) {
-                        UploadMapping.uploadFiles(apiKey, uuid,
-                                (Collections.singletonList(mappingFile.absolutePath) as List),
-                                token, timeout, AndroidUploadType.ANDROID_JAVA)
-                    } else {
-                        project.logger.lifecycle("Mapping file not found")
+                    // Attaching upload task to code obfuscation related tasks
+                    // Referred to sentry plugin for the list of tasks
+                    // https://github.com/getsentry/sentry-android-gradle-plugin/blob/fa456d68afa6edb33340030ccf26577d15bdbc47/plugin-build/src/main/kotlin/io/sentry/android/gradle/SentryTasksProvider.kt#L16-L22
+                    [
+                            "transformClassesAndResourcesWithR8For${taskSuffix}",
+                            "transformClassesAndResourcesWithProguardFor${taskSuffix}",
+                            "minify${taskSuffix}WithR8",
+                            "minify${taskSuffix}WithProguard"
+                    ].each{
+                        try {
+                            project.tasks.getByName(it).finalizedBy(uploadMappingTask)
+                        } catch (UnknownTaskException ignored) {
+                        }
                     }
-                }
-                try {
-                    variant.getAssembleProvider().configure() {
-                        it.doFirst { uploadMappingFile() }
-                    }
-                } catch (Throwable ignored) {
-                    // The catch block is a fallback in case if the gradle version does not support the Provider API
-                    variant.assemble.doFirst { uploadMappingFile() }
                 }
 
                 Closure uploadNDKSymbols = {
