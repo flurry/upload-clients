@@ -67,10 +67,10 @@ class SymbolUploadPlugin implements Plugin<Project> {
                     // Referred to sentry plugin for the list of tasks
                     // https://github.com/getsentry/sentry-android-gradle-plugin/blob/fa456d68afa6edb33340030ccf26577d15bdbc47/plugin-build/src/main/kotlin/io/sentry/android/gradle/SentryTasksProvider.kt#L16-L22
                     [
-                            "transformClassesAndResourcesWithR8For${variant.name.capitalize()}",
-                            "transformClassesAndResourcesWithProguardFor${variant.name.capitalize()}",
-                            "minify${variant.name.capitalize()}WithR8",
-                            "minify${variant.name.capitalize()}WithProguard"
+                            "transformClassesAndResourcesWithR8For${taskSuffix}",
+                            "transformClassesAndResourcesWithProguardFor${taskSuffix}",
+                            "minify${taskSuffix}WithR8",
+                            "minify${taskSuffix}WithProguard"
                     ].each{
                         try {
                             project.tasks.getByName(it).finalizedBy(uploadMappingTask)
