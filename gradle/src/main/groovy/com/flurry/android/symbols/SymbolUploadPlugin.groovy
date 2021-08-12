@@ -18,6 +18,7 @@ import org.gradle.api.logging.Logger
  */
 class SymbolUploadPlugin implements Plugin<Project> {
     public static final String CONFIGURATION_KEY = "flurryCrash"
+    public static final String FLURRY_UUID_KEY = "com.flurry.crash.map_id"
 
     public static final String API_KEY = "api-key"
     public static final String TOKEN = "token"
@@ -46,6 +47,7 @@ class SymbolUploadPlugin implements Plugin<Project> {
             project.android.applicationVariants.all { BaseVariant variant ->
                 String uuid = UUID.randomUUID().toString()
                 project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
+                variant.resValue "string", FLURRY_UUID_KEY, uuid
                 
                 if (variant.buildType.isMinifyEnabled()) {
                     String taskSuffix = variant.name.capitalize()
