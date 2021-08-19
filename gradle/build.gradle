@@ -13,7 +13,6 @@ plugins {
     id 'groovy'
     id 'java'
     id 'maven-publish'
-    id 'com.jfrog.bintray' version '1.7'
     id 'com.gradle.plugin-publish' version '0.14.0'
 }
 
@@ -41,7 +40,6 @@ dependencies {
 
     compile gradleApi()
     compile localGroovy()
-    compile 'com.flurry:proguard-upload:1.1.0'
 
     // transitive deps aren't being resolved from proguard-upload for some reason...
     compile 'org.json:json:20160810'
@@ -58,23 +56,6 @@ publishing {
         plugin(MavenPublication) {
             from components.java
         }
-    }
-}
-
-bintray {
-    user = "$bintrayUser"
-    key = "$bintrayApiKey"
-    publications = ['plugin']
-    pkg {
-        userOrg = 'yahoo'
-        repo = 'maven'
-        name = 'flurry-android-proguard-plugin'
-        licenses = ['MIT']
-        vcsUrl = 'https://github.com/flurry/upload-clients.git'
-        version {
-            name = "$project.version"
-        }
-
     }
 }
 
