@@ -191,7 +191,6 @@ def tar_gz_dsyms(search_path, single_file):
         dsyms = []
         for root, dirs, files in os.walk(search_root):
             dsyms.extend((root, d) for d in dirs if d.endswith(".dSYM"))
-            dsyms.extend((root, f) for f in files if f.endswith(".dSYM"))
         log.debug("Found %d dsyms", len(dsyms))
 
     tmpf = NamedTemporaryFile(delete=False)
