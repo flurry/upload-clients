@@ -173,7 +173,6 @@ def lookup_api_key(apikey, token):
     log.debug("project: %s", project)
     return int(project["data"][0]["id"])
 
-
 def tar_gz_dsyms(search_path, single_file):
     """Tar and gz all of the dSYMs found in the provided directory
     search_path - the path of the dSYM root
@@ -185,19 +184,22 @@ def tar_gz_dsyms(search_path, single_file):
 
     search_root = os.path.abspath(search_path)
     if single_file:
-        dsyms = [os.path.basename(search_root)]
+        dsyms = [os.path.split(search_root)]
         search_root = os.path.dirname(search_root)
     else:
         log.debug("looking for dsyms in %s", search_root)
-        dsyms = [f for f in os.listdir(search_root) if f.endswith(".dSYM")]
+        dsyms = []
+        for root, dirs, files in os.walk(search_root):
+            dsyms.extend((root, d) for d in dirs if d.endswith(".dSYM"))
+        log.debug("Found %d dsyms", len(dsyms))
 
     tmpf = NamedTemporaryFile(delete=False)
     tmpf.close()
     tar_path = os.path.abspath(tmpf.name + ".tgz")
 
-    os.chdir(search_root)
     tar = tarfile.open(name=tar_path, mode="w:gz")
-    for dsym in dsyms:
+    for root, dsym in dsyms:
+        os.chdir(root)
         log.debug("Adding %s to tar", dsym)
         tar.add(dsym)
     tar.close()
