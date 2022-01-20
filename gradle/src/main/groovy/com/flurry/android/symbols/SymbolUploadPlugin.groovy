@@ -27,8 +27,17 @@ class SymbolUploadPlugin implements Plugin<Project> {
 
     @Override
     void apply(Project project) {
+        def variantUuidMap = [:]
         UploadMapping.logger = project.logger
         getOrCreateConfig(project)
+
+        // Setting variant resValues prior to project evaluation, see
+        // discussion in https://issuetracker.google.com/issues/159550502
+        project.android.applicationVariants.all { BaseVariant variant ->
+            String uuid = UUID.randomUUID().toString()
+            variantUuidMap[variant.baseName] = uuid;
+            variant.resValue "string", FLURRY_UUID_KEY, uuid
+        }
 
         project.afterEvaluate {
             SymbolUploadConfiguration config = getOrCreateConfig(project)
@@ -45,10 +54,9 @@ class SymbolUploadPlugin implements Plugin<Project> {
             }
 
             project.android.applicationVariants.all { BaseVariant variant ->
-                String uuid = UUID.randomUUID().toString()
+                String uuid = variantUuidMap[variant.baseName]
                 project.logger.lifecycle("Variant=${variant.baseName} UUID=${uuid}")
-                variant.resValue "string", FLURRY_UUID_KEY, uuid
-                
+
                 if (variant.buildType.isMinifyEnabled()) {
                     String taskSuffix = variant.name.capitalize()
                     String taskName = String.format('uploadProguardMappingFiles%s', taskSuffix)

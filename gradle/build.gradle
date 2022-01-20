@@ -17,22 +17,14 @@ plugins {
 }
 
 group 'com.flurry'
-version '4.0.0'
+version '4.2.0'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-String bintrayUser = project.hasProperty("bintray.api.user") ? project.property("bintray.api.user") : ""  // Keep out of source control
-String bintrayApiKey = project.hasProperty("bintray.api.key") ? project.property("bintray.api.key") : ""   // Keep out of source control
-
-logger.lifecycle("Bintray user $bintrayUser")
-
 repositories {
     google()
-    jcenter()
-    maven {
-        url  "http://yahoo.bintray.com/maven"
-    }
+    mavenCentral()
 }
 
 dependencies {
