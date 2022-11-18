@@ -59,25 +59,24 @@ If you choose not to use FastLane, this can be done manually through the followi
 generated `mapping.txt` file manually before any stack traces received from that version of your app can be deobfuscated.
 
 1. Install Flurry SDK 6.7.0 or greater.
-1. Apply the Flurry android crash plugin to your app's build
+1. Add the Flurry android crash plugin to your project's build.gradle file.
    ```
      buildscript {
       repositories {
        maven {
         url "https://plugins.gradle.org/m2/"
        }
-       maven {
-        url  "http://yahoo.bintray.com/maven"
-       }
       }
       dependencies {
-       classpath "gradle.plugin.com.flurry:symbol-upload:1.2.0"
+       classpath "gradle.plugin.com.flurry:symbol-upload:4.2.1"
       }
      }
-     apply plugin: "com.flurry.android.symbols"
    ```
-1. Configure the crash plugin by adding the following configuration to the build.gradle file.
+1. Add the the upload-client plugin in plugins section and the following configuration to the app build.gradle file.
    ```
+   plugins {
+      id: "com.flurry.android.symbols"
+   }
    flurryCrash {
      apiKey ""
      token ""
@@ -90,6 +89,7 @@ generated `mapping.txt` file manually before any stack traces received from that
    - `useEnvVar (true|false)` the default for `useEnvVar` is `true`. You can set it to `false`
      if you want to inline your [Programmatic Token][programmatic-access], though this is not recommended.
    - `ndk (true|false)` the default value is `false`. You can set it to `true` if you want to upload symbols for your native code as well.
+   - `uploadTimeout 12000` the minimum default timeout value is 60000ms or 1 minute but if you face build failures at uploadProguardMappingFilesRelease stage, try increasing the timeout
 
 [programmatic-access]: https://developer.yahoo.com/flurry/docs/api/code/apptoken/
 [plugin-install]: https://plugins.gradle.org/plugin/com.flurry.android.symbols
