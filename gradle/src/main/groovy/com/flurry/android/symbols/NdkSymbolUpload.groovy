@@ -51,13 +51,13 @@ class NdkSymbolUpload {
 
         Closure searchForSharedObjectFiles = { ExternalNativeBuildTask task ->
             if (task.objFolder instanceof DirectoryProperty) {
-               findSharedObjectFiles(task.objFolder.asFileTree.files, addSharedObjectFiles)
-               findSharedObjectFiles(task.soFolder.asFileTree.files, addSharedObjectFiles)
-           }
-           else {
-               findSharedObjectFiles(new HashSet<File>(Set.of(task.objFolder)), addSharedObjectFiles)
-               findSharedObjectFiles(new HashSet<File>(Set.of(task.soFolder)), addSharedObjectFiles)
-           }
+                findSharedObjectFiles(task.objFolder.asFileTree.files, addSharedObjectFiles)
+                findSharedObjectFiles(task.soFolder.asFileTree.files, addSharedObjectFiles)
+            }
+            else {
+                findSharedObjectFiles(Set.of(task.objFolder), addSharedObjectFiles)
+                findSharedObjectFiles(Set.of(task.soFolder), addSharedObjectFiles)
+            }
         }
 
         try {
@@ -83,9 +83,9 @@ class NdkSymbolUpload {
 
     private static void findSharedObjectFiles(Set<File> fileSet, Closure processor) {
         if (fileSet == null) {
-           return;
+            return;
         }
-       for(File dir: fileSet) {
+        for(File dir: fileSet) {
             if (dir.exists()) {
                 dir.eachDir { architecture ->
                     architecture.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
