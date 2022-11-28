@@ -68,11 +68,12 @@ generated `mapping.txt` file manually before any stack traces received from that
        }
       }
       dependencies {
-       classpath "gradle.plugin.com.flurry:symbol-upload:4.2.1"
+       classpath "gradle.plugin.com.flurry:symbol-upload:7.3.0"
       }
      }
    ```
-1. Add the the upload-client plugin in plugins section and the following configuration to the app build.gradle file.
+   The latest symbol upload plugin version is 7.3.0.
+1. Add the upload-client plugin in plugins section and the following configuration to the app build.gradle file.
    ```
    plugins {
       id: "com.flurry.android.symbols"
