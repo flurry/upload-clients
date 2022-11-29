@@ -7,6 +7,7 @@ import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.tasks.ExternalNativeBuildTask
 import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.logging.Logger
 
 import static groovy.io.FileType.FILES
@@ -60,15 +61,10 @@ class NdkSymbolUpload {
             }
         }
 
-        try {
-            variant.getExternalNativeBuildProviders().each {
-                it.configure() {
-                    searchForSharedObjectFiles(it)
-                }
+        variant.getExternalNativeBuildProviders().each {
+            it.configure() {
+                searchForSharedObjectFiles(it)
             }
-        } catch(Throwable ignored) {
-            // The catch block is a fallback in case if the gradle version does not support the Provider API
-            variant.externalNativeBuildTasks.each { task -> searchForSharedObjectFiles(task) }
         }
         
         if (files.size() > 0) {
@@ -85,10 +81,17 @@ class NdkSymbolUpload {
         if (fileSet == null) {
             return;
         }
-        for(File dir: fileSet) {
-            if (dir.exists()) {
-                dir.eachDir { architecture ->
-                    architecture.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
+        for(File file: fileSet) {
+            if (file.exists()) {
+                if (file.isDirectory()) {
+                    file.eachDir { architecture ->
+                        architecture.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
+                    }
+                }
+                else {
+                    if (file.getName().endsWith(".so")) {
+                        processor(file);
+                    }
                 }
             }
         }
