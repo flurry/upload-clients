@@ -84,8 +84,8 @@ class NdkSymbolUpload {
         for(File file: fileSet) {
             if (file.exists()) {
                 if (file.isDirectory()) {
-                    file.eachDir { architecture ->
-                        architecture.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
+                    file.eachDir { dir ->
+                        dir.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
                     }
                 }
                 else {
