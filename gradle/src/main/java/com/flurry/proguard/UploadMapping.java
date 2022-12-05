@@ -48,6 +48,7 @@ public class UploadMapping {
     private static final String UPLOAD_BASE = "https://upload.flurry.com/upload/v1";
     public static final int FIVE_SECONDS_IN_MS = 5 * 1000;
     public static final int ONE_MINUTE_IN_MS = 60 * 1000;
+    public static final int THREE_SECONDS_IN_MS = 3 * 1000;
     public static final int TEN_MINUTES_IN_MS = 10 * ONE_MINUTE_IN_MS;
 
     private static boolean EXIT_PROCESS_ON_ERROR = false;
@@ -341,6 +342,8 @@ public class UploadMapping {
     private static void waitForUploadToBeProcessed(String projectId, String uploadId, String token, int maxWaitTime)
             throws IOException {
         int waitingTime = 0;
+        int maxTimeToWait = Math.max(ONE_MINUTE_IN_MS, maxWaitTime);
+        int multiplier = 1;
         while (true) {
             JSONObject upload = fetchUpload(projectId, uploadId, token);
             String uploadStatus = upload.getJSONObject("data")
@@ -357,15 +360,17 @@ public class UploadMapping {
                     failWithError("Upload processing failed: {}", reason);
 
                 default:
-                    if (waitingTime < maxWaitTime) {
-                        waitingTime += FIVE_SECONDS_IN_MS;
+                    if (waitingTime < maxTimeToWait) {
+                        multiplier = multiplier + 1;
+                        int sleepTime = THREE_SECONDS_IN_MS * multiplier;
+                        waitingTime += sleepTime;
                         try {
-                            Thread.sleep(FIVE_SECONDS_IN_MS);
+                            Thread.sleep(sleepTime);
                         } catch (InterruptedException e) {
                             failWithError("Exception while waiting for the upload to be processed", e);
                         }
                     } else {
-                        failWithError("Upload not processed after {}s", maxWaitTime / 1000);
+                        failWithError("Upload not processed after {}s", maxTimeToWait / 1000);
                     }
 
             }

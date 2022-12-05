@@ -7,6 +7,7 @@ import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.tasks.ExternalNativeBuildTask
 import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
+import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.logging.Logger
 
 import static groovy.io.FileType.FILES
@@ -50,21 +51,20 @@ class NdkSymbolUpload {
         }
 
         Closure searchForSharedObjectFiles = { ExternalNativeBuildTask task ->
-            File objFolder = task.objFolder
-            File soFolder = task.soFolder
-            findSharedObjectFiles(objFolder, addSharedObjectFiles)
-            findSharedObjectFiles(soFolder, addSharedObjectFiles)
+            if (task.objFolder instanceof DirectoryProperty) {
+                findSharedObjectFiles(task.objFolder.asFileTree.files, addSharedObjectFiles)
+                findSharedObjectFiles(task.soFolder.asFileTree.files, addSharedObjectFiles)
+            }
+            else {
+                findSharedObjectFiles(Set.of(task.objFolder), addSharedObjectFiles)
+                findSharedObjectFiles(Set.of(task.soFolder), addSharedObjectFiles)
+            }
         }
 
-        try {
-            variant.getExternalNativeBuildProviders().each {
-                it.configure() {
-                    searchForSharedObjectFiles(it)
-                }
+        variant.getExternalNativeBuildProviders().each {
+            it.configure() {
+                searchForSharedObjectFiles(it)
             }
-        } catch(Throwable ignored) {
-            // The catch block is a fallback in case if the gradle version does not support the Provider API
-            variant.externalNativeBuildTasks.each { task -> searchForSharedObjectFiles(task) }
         }
         
         if (files.size() > 0) {
@@ -77,10 +77,22 @@ class NdkSymbolUpload {
         }
     }
 
-    private static void findSharedObjectFiles(File dir, Closure processor) {
-        if (dir.exists()) {
-            dir.eachDir { architecture ->
-                architecture.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
+    private static void findSharedObjectFiles(Set<File> fileSet, Closure processor) {
+        if (fileSet == null) {
+            return;
+        }
+        for(File file: fileSet) {
+            if (file.exists()) {
+                if (file.isDirectory()) {
+                    file.eachDir { dir ->
+                        dir.eachFileMatch(FILES, ~/.*\.so$/, { processor(it) })
+                    }
+                }
+                else {
+                    if (file.getName().endsWith(".so")) {
+                        processor(file);
+                    }
+                }
             }
         }
     }
