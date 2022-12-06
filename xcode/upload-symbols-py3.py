@@ -49,7 +49,7 @@ UPLOAD_BASE = "https://upload.flurry.com/upload/v1/"
 
 API_KEY = 'api-key'
 TOKEN_KEY = 'token'
-SSL_CONTEXT = ssl.create_default_context(purpose=ssl.Purpose.CLIENT_AUTH)
+SSL_CONTEXT = ssl.create_default_context()
 
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(filename)s:%(lineno)s	%(message)s"
 logging.basicConfig(format=LOG_FORMAT, datefmt="%H:%M:%S")
