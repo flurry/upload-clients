@@ -51,12 +51,13 @@ class NdkSymbolUpload {
         }
 
         Closure searchForSharedObjectFiles = { ExternalNativeBuildTask task ->
-            if (task.objFolder instanceof DirectoryProperty) {
-                findSharedObjectFiles(task.objFolder.asFileTree.files, addSharedObjectFiles)
+            if (task.hasProperty("objFolder")) {
+                throw new IllegalStateException("Supports only AGP 8+");
+            }
+            if (task.soFolder instanceof DirectoryProperty) {
                 findSharedObjectFiles(task.soFolder.asFileTree.files, addSharedObjectFiles)
             }
             else {
-                findSharedObjectFiles(Set.of(task.objFolder), addSharedObjectFiles)
                 findSharedObjectFiles(Set.of(task.soFolder), addSharedObjectFiles)
             }
         }
