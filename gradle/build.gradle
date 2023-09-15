@@ -19,8 +19,8 @@ plugins {
 group 'com.flurry'
 version '8.0.0'
 
-sourceCompatibility = 11
-targetCompatibility = 11
+sourceCompatibility = 17
+targetCompatibility = 17
 
 repositories {
     google()
