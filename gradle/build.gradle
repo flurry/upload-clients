@@ -4,16 +4,13 @@ buildscript {
             url "https://plugins.gradle.org/m2/"
         }
     }
-    dependencies {
-        classpath "com.gradle.publish:plugin-publish-plugin:0.21.0"
-    }
 }
 
 plugins {
     id 'groovy'
     id 'java'
     id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '0.21.0'
+    id 'com.gradle.plugin-publish' version '1.1.0'
 }
 
 group 'com.flurry'
@@ -42,25 +39,17 @@ dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.13.2'
 }
 
-publishing {
-    publications {
-        plugin(MavenPublication) {
-            from components.java
-        }
-    }
-}
-
-pluginBundle {
+gradlePlugin {
     website = 'https://github.com/flurry/upload-clients'
     vcsUrl = 'https://github.com/flurry/upload-clients'
     description = 'Send ProGuard information to Flurry to allow deobfuscation of received stack traces'
-    tags = ['ProGuard', 'Android', 'Flurry']
 
+    // Define the plugin
     plugins {
         proguardPlugin {
             id = 'com.flurry.android.symbols'
             displayName = 'Flurry ProGuard plugin'
+            implementationClass = 'com.flurry.android.symbols.SymbolUploadPlugin'
         }
     }
 }
-
