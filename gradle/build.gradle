@@ -50,6 +50,7 @@ gradlePlugin {
             id = 'com.flurry.android.symbols'
             displayName = 'Flurry ProGuard plugin'
             implementationClass = 'com.flurry.android.symbols.SymbolUploadPlugin'
+            tags.set(['ProGuard', 'Android', 'Flurry'])
         }
     }
 }
