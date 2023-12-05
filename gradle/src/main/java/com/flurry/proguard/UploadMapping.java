@@ -124,6 +124,7 @@ public class UploadMapping {
      * @param paths the paths to the ProGuard/Native mapping.txt files
      * @param token the auth token for API calls
      * @param timeout the amount of time to wait for the upload to be processed (in ms)
+     * @param androidUploadType type of upload
      */
     public static void uploadFiles(String apiKey, String uuid, List<String> paths, String token, int timeout,
                                    AndroidUploadType androidUploadType) throws IOException {

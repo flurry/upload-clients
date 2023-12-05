@@ -7,6 +7,7 @@ import com.android.build.gradle.api.BaseVariant
 import com.android.build.gradle.tasks.ExternalNativeBuildTask
 import com.flurry.proguard.AndroidUploadType
 import com.flurry.proguard.UploadMapping
+import groovy.transform.CompileStatic
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.logging.Logger
 
@@ -41,6 +42,7 @@ import static groovy.io.FileType.FILES
  * WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+@CompileStatic
 class NdkSymbolUpload {
 
     static void upload(BaseVariant variant, Map<String, String> configValues, Logger logger) {
@@ -51,13 +53,14 @@ class NdkSymbolUpload {
         }
 
         Closure searchForSharedObjectFiles = { ExternalNativeBuildTask task ->
-            if (task.objFolder instanceof DirectoryProperty) {
-                findSharedObjectFiles(task.objFolder.asFileTree.files, addSharedObjectFiles)
+            if (task.hasProperty("objFolder")) {
+                throw new IllegalStateException("Supports only AGP 8+");
+            }
+            if (task.soFolder instanceof DirectoryProperty) {
                 findSharedObjectFiles(task.soFolder.asFileTree.files, addSharedObjectFiles)
             }
             else {
-                findSharedObjectFiles(Set.of(task.objFolder), addSharedObjectFiles)
-                findSharedObjectFiles(Set.of(task.soFolder), addSharedObjectFiles)
+                findSharedObjectFiles(Set.of((File) task.soFolder), addSharedObjectFiles)
             }
         }
 

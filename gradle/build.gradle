@@ -4,23 +4,20 @@ buildscript {
             url "https://plugins.gradle.org/m2/"
         }
     }
-    dependencies {
-        classpath "com.gradle.publish:plugin-publish-plugin:0.14.0"
-    }
 }
 
 plugins {
     id 'groovy'
     id 'java'
     id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '0.14.0'
+    id 'com.gradle.plugin-publish' version '1.1.0'
 }
 
 group 'com.flurry'
-version '7.3.0'
+version '8.0.0'
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = 17
+targetCompatibility = 17
 
 repositories {
     google()
@@ -28,39 +25,32 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'com.android.tools.build:gradle:[4.2.0,7.3.0]'
+    compileOnly 'com.android.tools.build:gradle:[8.0.0,8.0.0]'
 
     implementation gradleApi()
     implementation localGroovy()
 
-    implementation 'org.json:json:20160810'
-    implementation 'org.apache.httpcomponents:httpclient:4.5.1'
-    implementation 'org.apache.commons:commons-compress:1.12'
+    implementation 'org.json:json:20230618'
+    implementation 'org.apache.httpcomponents:httpclient:4.5.14'
+    implementation 'org.apache.commons:commons-compress:1.24.0'
     implementation 'net.sourceforge.argparse4j:argparse4j:0.7.0'
-    implementation 'org.slf4j:slf4j-simple:1.7.21'
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
 
-    testImplementation group: 'junit', name: 'junit', version: '4.11'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.2'
 }
 
-publishing {
-    publications {
-        plugin(MavenPublication) {
-            from components.java
-        }
-    }
-}
-
-pluginBundle {
+gradlePlugin {
     website = 'https://github.com/flurry/upload-clients'
     vcsUrl = 'https://github.com/flurry/upload-clients'
     description = 'Send ProGuard information to Flurry to allow deobfuscation of received stack traces'
-    tags = ['ProGuard', 'Android', 'Flurry']
 
+    // Define the plugin
     plugins {
         proguardPlugin {
             id = 'com.flurry.android.symbols'
             displayName = 'Flurry ProGuard plugin'
+            implementationClass = 'com.flurry.android.symbols.SymbolUploadPlugin'
+            tags.set(['ProGuard', 'Android', 'Flurry'])
         }
     }
 }
-
